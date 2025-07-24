@@ -4,13 +4,13 @@ import { Text, Card, Button, Switch, TextInput, FAB, Dialog, Portal, IconButton 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTrading } from '@/hooks/useTrading';
+import { useTrading } from '../../hooks/useTrading';
 
 const ANALYSIS_TYPES = [
   { id: 'technical', name: 'Technical Analysis', icon: 'timeline' },
   { id: 'fundamental', name: 'Fundamental Analysis', icon: 'assessment' },
   { id: 'sentiment', name: 'Market Sentiment', icon: 'psychology' },
-  { id: 'pattern', name: 'Pattern Recognition', icon: 'pattern' },
+  { id: 'pattern', name: 'Pattern Recognition', icon: 'show-chart' },
 ];
 
 const STRATEGIES = [
@@ -153,12 +153,11 @@ export default function AnalysisPage() {
               <Text style={styles.sectionDescription}>
                 Select multiple analysis types to combine for better accuracy
               </Text>
-              <View style={styles.analysisTypes}>
-                {ANALYSIS_TYPES.map((analysis) => (
+              <View style={styles.analysisTypes}>                {ANALYSIS_TYPES.map((analysis) => (
                   <View key={analysis.id} style={styles.analysisItem}>
                     <View style={styles.analysisInfo}>
                       <MaterialIcons
-                        name={analysis.icon as any}
+                        name={analysis.icon}
                         size={20}
                         color="#94A3B8"
                       />

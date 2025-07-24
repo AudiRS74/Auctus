@@ -1,74 +1,64 @@
-/*
- * @Description: 
- */
-
-// Powered by OnSpace.AI
-import { MaterialIcons } from '@expo/vector-icons';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Text, Button } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 
-export default function NotFoundScreen() {
+export default function NotFound() {
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#0a0a0a', '#1a1a1a']}
-        style={StyleSheet.absoluteFillObject}
-      />
-      
-      <View style={styles.content}>
-        <MaterialIcons name="photo-camera" size={80} color="#FFD700" />
-        <Text style={styles.title}>Page Not Found</Text>
-        <Text style={styles.message}>
-          The moment you're looking for seems to have been lost in the shadows.
-        </Text>
-        
-        <TouchableOpacity 
-          style={styles.homeButton}
-          onPress={() => router.push('/')}
-        >
-          <Text style={styles.homeButtonText}>Return Home</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+    <LinearGradient
+      colors={['#0F172A', '#1E293B']}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          <MaterialIcons name="error-outline" size={64} color="#EF4444" />
+          <Text style={styles.title}>Page Not Found</Text>
+          <Text style={styles.subtitle}>
+            The page you are looking for does not exist.
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => router.replace('/(tabs)')}
+            style={styles.homeButton}
+          >
+            Go to Dashboard
+          </Button>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+  },
+  safeArea: {
+    flex: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 20,
-    marginBottom: 10,
+    color: '#F8FAFC',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  message: {
+  subtitle: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 22,
+    marginBottom: 32,
   },
   homeButton: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-  },
-  homeButtonText: {
-    color: '#0a0a0a',
-    fontWeight: 'bold',
-    fontSize: 16,
+    backgroundColor: '#00C896',
   },
 });

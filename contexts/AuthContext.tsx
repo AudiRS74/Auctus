@@ -5,8 +5,6 @@ interface User {
   id: string;
   email: string;
   name: string;
-  avatar?: string;
-  verified: boolean;
 }
 
 interface AuthContextType {
@@ -14,9 +12,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  verifyEmail: (token: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,17 +22,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUser();
+    // Check for existing user session
+    checkStoredUser();
   }, []);
 
-  const loadUser = async () => {
+  const checkStoredUser = async () => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        setUser(JSON.parse(userData));
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
       }
     } catch (error) {
-      console.error('Error loading user:', error);
+      console.error('Error checking stored user:', error);
     } finally {
       setLoading(false);
     }
@@ -45,20 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Simulate authentication
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // For demo purposes, accept any email/password
       const userData: User = {
         id: '1',
         email,
         name: email.split('@')[0],
-        verified: true,
       };
       
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error) {
-      throw new Error('Invalid credentials');
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -67,62 +64,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulate registration
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       const userData: User = {
         id: Date.now().toString(),
         email,
         name,
-        verified: false,
-      };
-      
-      // Simulate sending verification email
-      console.log(`Verification email sent to ${email}`);
-      
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-    } catch (error) {
-      throw new Error('Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    setLoading(true);
-    try {
-      // Simulate Google OAuth
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const userData: User = {
-        id: 'google_' + Date.now(),
-        email: 'user@gmail.com',
-        name: 'Google User',
-        avatar: 'https://via.placeholder.com/100',
-        verified: true,
       };
       
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error) {
-      throw new Error('Google sign-in failed');
+      throw error;
     } finally {
       setLoading(false);
-    }
-  };
-
-  const verifyEmail = async (token: string) => {
-    if (user) {
-      const updatedUser = { ...user, verified: true };
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
     }
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem('user');
-    setUser(null);
+    setLoading(true);
+    try {
+      await AsyncStorage.removeItem('user');
+      setUser(null);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
@@ -130,9 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signUp,
-    signInWithGoogle,
     signOut,
-    verifyEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

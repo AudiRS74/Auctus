@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { TradingContext } from '@/contexts/TradingContext';
+import { TradingContext } from '../contexts/TradingProvider';
 
 export function useTrading() {
   const context = useContext(TradingContext);

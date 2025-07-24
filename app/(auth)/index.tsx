@@ -1,44 +1,39 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 
-export default function LandingPage() {
+export default function AuthIndex() {
   return (
     <LinearGradient
-      colors={['#0F172A', '#1E293B', '#334155']}
+      colors={['#0F172A', '#1E293B']}
       style={styles.container}
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
-          <Text style={styles.logo}>📈 TradingBot Pro</Text>
-          <Text style={styles.subtitle}>
-            Advanced MT5 Trading Platform with AI-Powered Analytics
-          </Text>
-          
-          <View style={styles.features}>
-            <Text style={styles.feature}>• Real-time MT5 integration</Text>
-            <Text style={styles.feature}>• Advanced technical indicators</Text>
-            <Text style={styles.feature}>• Automated trading bots</Text>
-            <Text style={styles.feature}>• Risk management tools</Text>
+          <View style={styles.header}>
+            <MaterialIcons name="trending-up" size={64} color="#00C896" />
+            <Text style={styles.title}>Auctus Trading</Text>
+            <Text style={styles.subtitle}>Advanced Trading Platform</Text>
           </View>
 
           <View style={styles.buttons}>
             <Button
               mode="contained"
               onPress={() => router.push('/(auth)/signin')}
-              style={styles.primaryButton}
-              labelStyle={styles.buttonText}
+              style={styles.signInButton}
+              contentStyle={styles.buttonContent}
             >
               Sign In
             </Button>
             <Button
               mode="outlined"
               onPress={() => router.push('/(auth)/signup')}
-              style={styles.secondaryButton}
-              labelStyle={styles.secondaryButtonText}
+              style={styles.signUpButton}
+              contentStyle={styles.buttonContent}
             >
               Create Account
             </Button>
@@ -58,50 +53,36 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 32,
   },
-  logo: {
+  header: {
+    alignItems: 'center',
+    marginBottom: 64,
+  },
+  title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#00C896',
-    marginBottom: 16,
-    textAlign: 'center',
+    color: '#F8FAFC',
+    marginTop: 16,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#CBD5E1',
-    textAlign: 'center',
-    marginBottom: 40,
-    lineHeight: 24,
-  },
-  features: {
-    marginBottom: 40,
-  },
-  feature: {
-    color: '#94A3B8',
     fontSize: 16,
-    marginVertical: 4,
+    color: '#94A3B8',
+    marginTop: 8,
   },
   buttons: {
     width: '100%',
     gap: 16,
   },
-  primaryButton: {
+  signInButton: {
     backgroundColor: '#00C896',
-    paddingVertical: 8,
   },
-  secondaryButton: {
+  signUpButton: {
     borderColor: '#00C896',
+  },
+  buttonContent: {
     paddingVertical: 8,
-  },
-  buttonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    color: '#00C896',
   },
 });
