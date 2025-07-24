@@ -28,25 +28,3 @@ export default function RootLayout() {
     </PaperProvider>
   );
 }
-</Stack>
-
-export default function RootLayout() {
-  useEffect(() => {
-    // Hide splash screen after layout is ready
-    SplashScreen.hideAsync();
-  }, []);
-
-  return (
-    <PaperProvider>
-      <AuthProvider>
-        <TradingProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-        </TradingProvider>
-      </AuthProvider>
-    </PaperProvider>
-  );
-}
