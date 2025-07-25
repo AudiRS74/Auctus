@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert, Platform } from 'react-native';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { Text, TextInput, Button, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn, signInWithGoogle } = useAuth();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -35,7 +36,23 @@ export default function SignIn() {
         Alert.alert('Sign In Error', message);
       }
     } finally {
-      setLoading(false);
+      setLoading(false);    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      router.replace('/(tabs)');
+    } catch (error) {
+      const message = 'Google sign in failed. Please try again.';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Google Sign In Error', message);
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -66,16 +83,33 @@ export default function SignIn() {
               mode="outlined"
               style={styles.input}
               secureTextEntry
-            />
-            <Button
+            />            <Button
               mode="contained"
               onPress={handleSignIn}
               loading={loading}
-              disabled={loading}
+              disabled={loading || googleLoading}
               style={styles.signInButton}
               contentStyle={styles.buttonContent}
             >
               Sign In
+            </Button>
+            
+            <View style={styles.dividerContainer}>
+              <Divider style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <Divider style={styles.divider} />
+            </View>
+
+            <Button
+              mode="outlined"
+              onPress={handleGoogleSignIn}
+              loading={googleLoading}
+              disabled={loading || googleLoading}
+              style={styles.googleButton}
+              contentStyle={styles.buttonContent}
+              icon={() => <MaterialIcons name="account-circle" size={20} color="#4285F4" />}
+            >
+              Continue with Google
             </Button>
           </View>
 
@@ -127,9 +161,26 @@ const styles = StyleSheet.create({
   signInButton: {
     backgroundColor: '#00C896',
     marginTop: 16,
-  },
-  buttonContent: {
+  },  buttonContent: {
     paddingVertical: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  divider: {
+    flex: 1,
+    backgroundColor: '#475569',
+  },
+  dividerText: {
+    color: '#94A3B8',
+    marginHorizontal: 16,
+    fontSize: 14,
+  },
+  googleButton: {
+    borderColor: '#4285F4',
+    borderWidth: 1,
   },
   switchButton: {
     alignSelf: 'center',

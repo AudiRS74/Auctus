@@ -153,7 +153,8 @@ export default function AnalysisPage() {
               <Text style={styles.sectionDescription}>
                 Select multiple analysis types to combine for better accuracy
               </Text>
-              <View style={styles.analysisTypes}>                {ANALYSIS_TYPES.map((analysis) => (
+                            <View style={styles.analysisTypes}>
+                {ANALYSIS_TYPES.map((analysis) => (
                   <View key={analysis.id} style={styles.analysisItem}>
                     <View style={styles.analysisInfo}>
                       <MaterialIcons

@@ -1,5 +1,6 @@
 import React, { createContext, ReactNode, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleAuth } from '../services/googleAuth';
 
 interface User {
   id: string;
@@ -12,6 +13,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -82,6 +84,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+    const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const result = await GoogleAuth.signIn();
+      
+      if (result.success && result.user) {
+        const userData: User = {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        };
+        
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      } else {
+        throw new Error(result.error || 'Google authentication failed');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     setLoading(true);
     try {
@@ -99,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
   };
 
