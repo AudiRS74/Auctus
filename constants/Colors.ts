@@ -1,26 +1,56 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  // Primary dark theme colors
+  background: '#0A0E1A',
+  surface: '#151B2C',
+  surfaceElevated: '#1E2A3E',
+  
+  // Primary brand colors
+  primary: '#00D2FF',
+  primaryVariant: '#0099CC',
+  secondary: '#00FF88',
+  accent: '#FFD700',
+  
+  // Text colors
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B8C5D6',
+  textMuted: '#6B7C8E',
+  
+  // Trading colors
+  bullish: '#00FF88',
+  bearish: '#FF4757',
+  warning: '#FFD700',
+  neutral: '#6B7C8E',
+  
+  // Status colors
+  success: '#00FF88',
+  error: '#FF4757',
+  info: '#00D2FF',
+  
+  // Border and divider colors
+  border: '#2A3441',
+  divider: '#1E2A3E',
+  
+  // Card and component backgrounds
+  cardBackground: '#151B2C',
+  cardElevated: '#1E2A3E',
+  
+  // Transparent overlays
+  overlay: 'rgba(10, 14, 26, 0.9)',
+  overlayLight: 'rgba(10, 14, 26, 0.7)',
+  
+  // Gradient colors
+  gradientStart: '#0A0E1A',
+  gradientEnd: '#151B2C',
+  
+  // Input and form colors
+  inputBackground: '#1E2A3E',
+  inputBorder: '#2A3441',
+  inputFocused: '#00D2FF',
+};
+
+export const Gradients = {
+  primary: ['#00D2FF', '#0099CC'],
+  secondary: ['#00FF88', '#00CC6A'],
+  surface: ['#151B2C', '#1E2A3E'],
+  header: ['#0A0E1A', '#151B2C'],
 };

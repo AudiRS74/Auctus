@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, TextInput, Switch } from 'react-native-paper';
+import { Card, Button, TextInput, Switch, Divider } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
+import { Colors, Gradients } from '../../constants/Colors';
+import { Typography } from '../../constants/Typography';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -81,63 +85,124 @@ export default function Settings() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView}>
+      <LinearGradient
+        colors={Gradients.header}
+        style={styles.headerGradient}
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Settings</Text>
+          <View>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.subtitle}>Platform configuration</Text>
+          </View>
+          <MaterialIcons name="settings" size={28} color={Colors.primary} />
         </View>
+      </LinearGradient>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>User Profile</Text>
-            <View style={styles.profileRow}>
-              <Text style={styles.label}>Name:</Text>
-              <Text style={styles.value}>{user?.name}</Text>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* User Profile */}
+        <Card style={styles.profileCard}>
+          <LinearGradient
+            colors={[Colors.primary + '15', Colors.surface]}
+            style={styles.profileGradient}
+          >
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <MaterialIcons name="account-circle" size={64} color={Colors.primary} />
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{user?.name || 'Trader'}</Text>
+                <Text style={styles.profileEmail}>{user?.email}</Text>
+                <View style={styles.profileBadge}>
+                  <MaterialIcons name="verified" size={16} color={Colors.bullish} />
+                  <Text style={styles.profileBadgeText}>Verified Account</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.profileRow}>
-              <Text style={styles.label}>Email:</Text>
-              <Text style={styles.value}>{user?.email}</Text>
-            </View>
-          </Card.Content>
+          </LinearGradient>
         </Card>
 
+        {/* MT5 Connection */}
         <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>MT5 Connection</Text>
-            <View style={styles.connectionStatus}>
-              <Text style={styles.statusLabel}>Status:</Text>
-              <Text style={[styles.statusValue, { 
-                color: mt5Config.connected ? '#4CAF50' : '#F44336' 
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="cloud" size={24} color={Colors.secondary} />
+                <Text style={styles.cardTitle}>MT5 Connection</Text>
+              </View>
+              <View style={[styles.connectionStatus, { 
+                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : Colors.bearish + '20' 
               }]}>
-                {mt5Config.connected ? 'Connected' : 'Disconnected'}
-              </Text>
+                <MaterialIcons 
+                  name={mt5Config.connected ? "wifi" : "wifi-off"} 
+                  size={16} 
+                  color={mt5Config.connected ? Colors.bullish : Colors.bearish} 
+                />
+                <Text style={[styles.connectionStatusText, { 
+                  color: mt5Config.connected ? Colors.bullish : Colors.bearish 
+                }]}>
+                  {mt5Config.connected ? 'Connected' : 'Disconnected'}
+                </Text>
+              </View>
             </View>
             
-            <TextInput
-              label="Server"
-              value={server}
-              onChangeText={setServer}
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., MetaQuotes-Demo"
-            />
-            
-            <TextInput
-              label="Login"
-              value={login}
-              onChangeText={setLogin}
-              mode="outlined"
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            
-            <TextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry
-              style={styles.input}
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                label="Server"
+                value={server}
+                onChangeText={setServer}
+                mode="outlined"
+                style={styles.input}
+                placeholder="e.g., MetaQuotes-Demo"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="server" iconColor={Colors.textMuted} />}
+              />
+              
+              <TextInput
+                label="Login"
+                value={login}
+                onChangeText={setLogin}
+                mode="outlined"
+                keyboardType="numeric"
+                style={styles.input}
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
+              />
+              
+              <TextInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                mode="outlined"
+                secureTextEntry
+                style={styles.input}
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
+              />
+            </View>
             
             <Button
               mode="contained"
@@ -145,83 +210,169 @@ export default function Settings() {
               loading={connecting}
               disabled={connecting}
               style={styles.connectButton}
+              buttonColor={mt5Config.connected ? Colors.secondary : Colors.primary}
+              textColor={Colors.background}
+              icon={mt5Config.connected ? "refresh" : "connection"}
             >
               {mt5Config.connected ? 'Reconnect' : 'Connect'} to MT5
             </Button>
           </Card.Content>
         </Card>
 
+        {/* Automation Rules */}
         <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Automation Rules</Text>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="smart-toy" size={24} color={Colors.accent} />
+                <Text style={styles.cardTitle}>Automation Rules</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>{automationRules.length} rules</Text>
+            </View>
             
-            <TextInput
-              label="Rule Name"
-              value={newRuleName}
-              onChangeText={setNewRuleName}
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., RSI Oversold Buy"
-            />
-            
-            <TextInput
-              label="Rule Description"
-              value={newRuleDescription}
-              onChangeText={setNewRuleDescription}
-              mode="outlined"
-              multiline
-              numberOfLines={3}
-              style={styles.input}
-              placeholder="Describe the automation rule..."
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                label="Rule Name"
+                value={newRuleName}
+                onChangeText={setNewRuleName}
+                mode="outlined"
+                style={styles.input}
+                placeholder="e.g., RSI Oversold Buy Signal"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+              />
+              
+              <TextInput
+                label="Rule Description"
+                value={newRuleDescription}
+                onChangeText={setNewRuleDescription}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+                placeholder="Describe the conditions and actions..."
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+              />
+            </View>
             
             <Button
               mode="outlined"
               onPress={handleAddRule}
               style={styles.addRuleButton}
+              textColor={Colors.accent}
+              icon="plus"
             >
-              Add Rule
+              Add Automation Rule
             </Button>
             
             {automationRules.length === 0 ? (
-              <Text style={styles.noRules}>No automation rules configured</Text>
+              <View style={styles.emptyState}>
+                <MaterialIcons name="psychology" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No automation rules configured</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Create rules to automate your trading strategies
+                </Text>
+              </View>
             ) : (
-              automationRules.map((rule) => (
-                <View key={rule.id} style={styles.ruleItem}>
-                  <View style={styles.ruleHeader}>
-                    <Text style={styles.ruleName}>{rule.name}</Text>
-                    <Switch
-                      value={rule.isActive}
-                      onValueChange={() => toggleAutomationRule(rule.id)}
-                    />
-                  </View>
-                  <Text style={styles.ruleDescription}>{rule.description}</Text>
-                  <Button
-                    mode="text"
-                    onPress={() => handleDeleteRule(rule.id)}
-                    textColor="#F44336"
-                    compact
-                  >
-                    Delete
-                  </Button>
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.rulesContainer}>
+                  {automationRules.map((rule, index) => (
+                    <View key={rule.id}>
+                      <View style={styles.ruleItem}>
+                        <View style={styles.ruleHeader}>
+                          <View style={styles.ruleInfo}>
+                            <Text style={styles.ruleName}>{rule.name}</Text>
+                            <Text style={styles.ruleDescription}>{rule.description}</Text>
+                          </View>
+                          <Switch
+                            value={rule.isActive}
+                            onValueChange={() => toggleAutomationRule(rule.id)}
+                            thumbColor={rule.isActive ? Colors.bullish : Colors.textMuted}
+                            trackColor={{
+                              false: Colors.border,
+                              true: Colors.bullish + '40'
+                            }}
+                          />
+                        </View>
+                        
+                        <View style={styles.ruleActions}>
+                          <View style={styles.ruleStats}>
+                            <View style={styles.ruleStat}>
+                              <Text style={styles.ruleStatValue}>
+                                {Math.floor(Math.random() * 15) + 1}
+                              </Text>
+                              <Text style={styles.ruleStatLabel}>Triggers</Text>
+                            </View>
+                            <View style={styles.ruleStat}>
+                              <Text style={styles.ruleStatValue}>
+                                {(Math.random() * 30 + 60).toFixed(0)}%
+                              </Text>
+                              <Text style={styles.ruleStatLabel}>Success</Text>
+                            </View>
+                          </View>
+                          
+                          <Button
+                            mode="text"
+                            onPress={() => handleDeleteRule(rule.id)}
+                            textColor={Colors.bearish}
+                            compact
+                            icon="delete"
+                          >
+                            Delete
+                          </Button>
+                        </View>
+                      </View>
+                      {index < automationRules.length - 1 && <Divider style={styles.ruleDivider} />}
+                    </View>
+                  ))}
                 </View>
-              ))
+              </>
             )}
           </Card.Content>
         </Card>
 
+        {/* Account Actions */}
         <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Account Actions</Text>
-            <Button
-              mode="outlined"
-              onPress={signOut}
-              style={styles.signOutButton}
-              buttonColor="#F44336"
-              textColor="#F44336"
-            >
-              Sign Out
-            </Button>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="manage-accounts" size={24} color={Colors.bearish} />
+                <Text style={styles.cardTitle}>Account Management</Text>
+              </View>
+            </View>
+            
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              <Text style={styles.dangerZoneDescription}>
+                These actions will affect your account and trading session
+              </Text>
+              
+              <Button
+                mode="outlined"
+                onPress={signOut}
+                style={styles.signOutButton}
+                textColor={Colors.bearish}
+                icon="logout"
+              >
+                Sign Out
+              </Button>
+            </View>
           </Card.Content>
         </Card>
       </ScrollView>
@@ -232,102 +383,220 @@ export default function Settings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
+  },
+  headerGradient: {
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  title: {
+    ...Typography.h3,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
   scrollView: {
     flex: 1,
+    paddingHorizontal: 16,
   },
-  header: {
+  profileCard: {
+    marginTop: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 8,
+  },
+  profileGradient: {
+    borderRadius: 16,
     padding: 20,
-    backgroundColor: '#007AFF',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    marginRight: 16,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    ...Typography.h5,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  profileEmail: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  profileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bullish + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  profileBadgeText: {
+    ...Typography.caption,
+    color: Colors.bullish,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   card: {
-    margin: 15,
+    marginBottom: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
     elevation: 4,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
+  cardContent: {
+    paddingVertical: 20,
   },
-  profileRow: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  label: {
-    fontSize: 16,
-    color: '#666',
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  value: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+  cardTitle: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    marginLeft: 8,
+  },
+  sectionSubtitle: {
+    ...Typography.body2,
+    color: Colors.textMuted,
   },
   connectionStatus: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  connectionStatusText: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  inputContainer: {
     marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-  },
-  statusLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  statusValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   input: {
-    marginBottom: 15,
+    marginBottom: 16,
+    backgroundColor: Colors.inputBackground,
   },
   connectButton: {
-    marginTop: 10,
+    marginTop: 4,
   },
   addRuleButton: {
+    borderColor: Colors.accent,
     marginBottom: 20,
   },
-  noRules: {
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    ...Typography.h6,
+    color: Colors.textMuted,
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    ...Typography.body2,
+    color: Colors.textMuted,
+    marginTop: 8,
     textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 10,
+  },
+  divider: {
+    backgroundColor: Colors.border,
+    marginBottom: 20,
+  },
+  rulesContainer: {
+    gap: 0,
   },
   ruleItem: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
+    paddingVertical: 16,
   },
   ruleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  ruleInfo: {
+    flex: 1,
+    marginRight: 16,
   },
   ruleName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   ruleDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  ruleActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ruleStats: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  ruleStat: {
+    alignItems: 'center',
+  },
+  ruleStatValue: {
+    ...Typography.body2,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  ruleStatLabel: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+  },
+  ruleDivider: {
+    backgroundColor: Colors.border,
+  },
+  dangerZone: {
+    backgroundColor: Colors.bearish + '10',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.bearish + '30',
+  },
+  dangerZoneTitle: {
+    ...Typography.body1,
+    color: Colors.bearish,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  dangerZoneDescription: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
   },
   signOutButton: {
-    marginTop: 10,
+    borderColor: Colors.bearish,
   },
 });

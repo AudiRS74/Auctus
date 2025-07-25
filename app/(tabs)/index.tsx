@@ -2,8 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
+import { Colors, Gradients } from '../../constants/Colors';
+import { Typography } from '../../constants/Typography';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -14,71 +18,173 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView}>
+      <LinearGradient
+        colors={Gradients.header}
+        style={styles.headerGradient}
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome, {user?.name}</Text>
-          <Text style={styles.subtitle}>Trading Dashboard</Text>
+          <View>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.userName}>{user?.name || 'Trader'}</Text>
+          </View>
+          <View style={styles.headerIcon}>
+            <MaterialIcons name="trending-up" size={32} color={Colors.primary} />
+          </View>
         </View>
+      </LinearGradient>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Account Overview</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Total Trades:</Text>
-              <Text style={styles.value}>{trades.length}</Text>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Portfolio Overview */}
+        <Card style={styles.portfolioCard}>
+          <LinearGradient
+            colors={[Colors.primary + '20', Colors.surface]}
+            style={styles.cardGradient}
+          >
+            <View style={styles.portfolioHeader}>
+              <Text style={styles.portfolioTitle}>Portfolio Overview</Text>
+              <MaterialIcons name="account-balance-wallet" size={24} color={Colors.primary} />
             </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Active Trades:</Text>
-              <Text style={styles.value}>{activeTrades.length}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Total P&L:</Text>
-              <Text style={[styles.value, { color: totalProfit >= 0 ? '#4CAF50' : '#F44336' }]}>
-                ${totalProfit.toFixed(2)}
+            
+            <View style={styles.profitContainer}>
+              <Text style={styles.profitLabel}>Total P&L</Text>
+              <Text style={[styles.profitValue, { 
+                color: totalProfit >= 0 ? Colors.bullish : Colors.bearish 
+              }]}>
+                {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
               </Text>
             </View>
-          </Card.Content>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{trades.length}</Text>
+                <Text style={styles.statLabel}>Total Trades</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{activeTrades.length}</Text>
+                <Text style={styles.statLabel}>Active Trades</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: Colors.primary }]}>
+                  {trades.length > 0 ? ((activeTrades.filter(t => (t.profit || 0) > 0).length / trades.length) * 100).toFixed(0) : 0}%
+                </Text>
+                <Text style={styles.statLabel}>Win Rate</Text>
+              </View>
+            </View>
+          </LinearGradient>
         </Card>
 
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>MT5 Connection</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Status:</Text>
-              <Text style={[styles.value, { color: mt5Config.connected ? '#4CAF50' : '#F44336' }]}>
-                {mt5Config.connected ? 'Connected' : 'Disconnected'}
-              </Text>
+        {/* Connection Status */}
+        <Card style={[styles.card, { borderLeftWidth: 4, borderLeftColor: mt5Config.connected ? Colors.bullish : Colors.bearish }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.connectionHeader}>
+              <View style={styles.connectionTitleContainer}>
+                <MaterialIcons 
+                  name={mt5Config.connected ? "cloud-done" : "cloud-off"} 
+                  size={24} 
+                  color={mt5Config.connected ? Colors.bullish : Colors.bearish} 
+                />
+                <Text style={styles.cardTitle}>MT5 Connection</Text>
+              </View>
+              <View style={[styles.statusBadge, { 
+                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : Colors.bearish + '20' 
+              }]}>
+                <Text style={[styles.statusText, { 
+                  color: mt5Config.connected ? Colors.bullish : Colors.bearish 
+                }]}>
+                  {mt5Config.connected ? 'Connected' : 'Disconnected'}
+                </Text>
+              </View>
             </View>
-            {mt5Config.connected && (
-              <View style={styles.row}>
-                <Text style={styles.label}>Server:</Text>
-                <Text style={styles.value}>{mt5Config.server}</Text>
+            
+            {mt5Config.connected && mt5Config.server && (
+              <View style={styles.connectionDetails}>
+                <Text style={styles.connectionLabel}>Server:</Text>
+                <Text style={styles.connectionValue}>{mt5Config.server}</Text>
               </View>
             )}
           </Card.Content>
         </Card>
 
+        {/* Market Indicators */}
         <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Market Indicators</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>RSI:</Text>
-              <Text style={styles.value}>{indicators.rsi.toFixed(2)}</Text>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.indicatorsHeader}>
+              <Text style={styles.cardTitle}>Market Indicators</Text>
+              <MaterialIcons name="show-chart" size={24} color={Colors.accent} />
             </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Moving Average:</Text>
-              <Text style={styles.value}>{indicators.movingAverage.toFixed(4)}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>MACD Signal:</Text>
-              <Text style={styles.value}>{indicators.macd.signal.toFixed(4)}</Text>
+            
+            <View style={styles.indicatorsGrid}>
+              <View style={styles.indicatorItem}>
+                <View style={styles.indicatorIcon}>
+                  <MaterialIcons name="speed" size={20} color={Colors.primary} />
+                </View>
+                <View style={styles.indicatorContent}>
+                  <Text style={styles.indicatorLabel}>RSI</Text>
+                  <Text style={[styles.indicatorValue, { 
+                    color: indicators.rsi > 70 ? Colors.bearish : indicators.rsi < 30 ? Colors.bullish : Colors.textPrimary 
+                  }]}>
+                    {indicators.rsi.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.indicatorItem}>
+                <View style={styles.indicatorIcon}>
+                  <MaterialIcons name="timeline" size={20} color={Colors.secondary} />
+                </View>
+                <View style={styles.indicatorContent}>
+                  <Text style={styles.indicatorLabel}>MA</Text>
+                  <Text style={styles.indicatorValue}>{indicators.movingAverage.toFixed(4)}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.indicatorItem}>
+                <View style={styles.indicatorIcon}>
+                  <MaterialIcons name="trending-up" size={20} color={Colors.accent} />
+                </View>
+                <View style={styles.indicatorContent}>
+                  <Text style={styles.indicatorLabel}>MACD</Text>
+                  <Text style={[styles.indicatorValue, { 
+                    color: indicators.macd.signal > 0 ? Colors.bullish : Colors.bearish 
+                  }]}>
+                    {indicators.macd.signal.toFixed(4)}
+                  </Text>
+                </View>
+              </View>
             </View>
           </Card.Content>
         </Card>
 
-        <Button mode="outlined" onPress={signOut} style={styles.signOutButton}>
-          Sign Out
-        </Button>
+        {/* Quick Actions */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+            <View style={styles.quickActions}>
+              <Button
+                mode="contained"
+                buttonColor={Colors.primary}
+                textColor={Colors.background}
+                style={styles.actionButton}
+                labelStyle={styles.actionButtonText}
+                icon="chart-line"
+              >
+                View Charts
+              </Button>
+              <Button
+                mode="contained"
+                buttonColor={Colors.secondary}
+                textColor={Colors.background}
+                style={styles.actionButton}
+                labelStyle={styles.actionButtonText}
+                icon="swap-horizontal"
+              >
+                Quick Trade
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -87,53 +193,197 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
-  scrollView: {
-    flex: 1,
+  headerGradient: {
+    paddingBottom: 20,
   },
   header: {
-    padding: 20,
-    backgroundColor: '#007AFF',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#ffffff',
-    opacity: 0.8,
-  },
-  card: {
-    margin: 15,
-    elevation: 4,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  label: {
-    fontSize: 16,
-    color: '#666',
+  welcomeText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
   },
-  value: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+  userName: {
+    ...Typography.h3,
+    color: Colors.textPrimary,
+    marginTop: 4,
   },
-  signOutButton: {
-    margin: 20,
-    marginBottom: 40,
+  headerIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  portfolioCard: {
+    marginTop: 20,
+    marginBottom: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  cardGradient: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  portfolioHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  portfolioTitle: {
+    ...Typography.h5,
+    color: Colors.textPrimary,
+  },
+  profitContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  profitLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  profitValue: {
+    ...Typography.h1,
+    ...Typography.number,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    ...Typography.number,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: Colors.border,
+  },
+  card: {
+    marginBottom: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  cardContent: {
+    paddingVertical: 20,
+  },
+  cardTitle: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+  },
+  connectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  connectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  connectionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  connectionLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+  },
+  connectionValue: {
+    ...Typography.body2,
+    color: Colors.textPrimary,
+    ...Typography.number,
+  },
+  indicatorsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  indicatorsGrid: {
+    gap: 16,
+  },
+  indicatorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardElevated,
+    padding: 16,
+    borderRadius: 8,
+  },
+  indicatorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  indicatorContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  indicatorLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+  },
+  indicatorValue: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    ...Typography.number,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    ...Typography.button,
   },
 });

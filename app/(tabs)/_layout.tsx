@@ -1,29 +1,41 @@
 import React from 'react';
-import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Colors } from '../../constants/Colors';
 
-export default function TabsLayout() {
+export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? insets.bottom + 50 : 60,
-          paddingHorizontal: 16,
-          backgroundColor: '#ffffff',
+          backgroundColor: Colors.surface,
+          borderTopColor: Colors.border,
           borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
+          height: Platform.OS === 'ios' ? insets.bottom + 80 : 80,
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 16,
+          paddingTop: 16,
+          paddingHorizontal: 16,
+          elevation: 8,
+          shadowColor: Colors.background,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
+          marginTop: 4,
         },
+        tabBarIconStyle: {
+          marginBottom: 0,
+        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -45,20 +57,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="analysis"
-        options={{
-          title: 'Analysis',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="analytics" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="charts"
         options={{
           title: 'Charts',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="show-chart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="analysis"
+        options={{
+          title: 'Analysis',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="analytics" size={size} color={color} />
           ),
         }}
       />
