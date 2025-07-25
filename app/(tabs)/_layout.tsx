@@ -1,31 +1,25 @@
 import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useAuth } from '../../hooks/useAuth';
 import { Platform } from 'react-native';
+import { Tabs } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
-
-  if (!user) {
-    return <Redirect href="/(auth)" />;
-  }
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#999',
         tabBarStyle: {
-          backgroundColor: '#1E293B',
-          borderTopColor: '#334155',
-          height: Platform.OS === 'ios' ? insets.bottom + 60 : 70,
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
-          paddingTop: 10,
+          height: Platform.OS === 'ios' ? insets.bottom + 50 : 60,
+          paddingHorizontal: 16,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
         },
-        tabBarActiveTintColor: '#00C896',
-        tabBarInactiveTintColor: '#64748B',
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -51,20 +45,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="charts"
-        options={{
-          title: 'Charts',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="show-chart" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="analysis"
         options={{
           title: 'Analysis',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="analytics" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="charts"
+        options={{
+          title: 'Charts',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="show-chart" size={size} color={color} />
           ),
         }}
       />

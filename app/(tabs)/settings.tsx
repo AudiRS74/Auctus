@@ -1,456 +1,333 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Button, TextInput, Switch, List } from 'react-native-paper';
+import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useAuth } from '@/hooks/useAuth';
-import { useTrading } from '@/hooks/useTrading';
+import { Card, Button, TextInput, Switch } from 'react-native-paper';
+import { useAuth } from '../../hooks/useAuth';
+import { useTrading } from '../../hooks/useTrading';
 
-export default function SettingsPage() {
+export default function Settings() {
   const { user, signOut } = useAuth();
-  const { mt5Config, connectMT5 } = useTrading();
+  const { mt5Config, connectMT5, addAutomationRule, automationRules, toggleAutomationRule, deleteAutomationRule } = useTrading();
+  
   const [server, setServer] = useState(mt5Config.server);
   const [login, setLogin] = useState(mt5Config.login);
   const [password, setPassword] = useState(mt5Config.password);
   const [connecting, setConnecting] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [autoSync, setAutoSync] = useState(true);
+  
+  const [newRuleName, setNewRuleName] = useState('');
+  const [newRuleDescription, setNewRuleDescription] = useState('');
 
   const handleMT5Connect = async () => {
     if (!server || !login || !password) {
-      Alert.alert('Error', 'Please fill in all MT5 connection details');
+      const message = 'Please fill in all MT5 connection details';
+      if (Platform.OS === 'web') {
+        alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
       return;
     }
 
     setConnecting(true);
     try {
       await connectMT5({ server, login, password });
-      Alert.alert('Success', 'Successfully connected to MT5!');
+      const message = 'Successfully connected to MT5';
+      if (Platform.OS === 'web') {
+        alert(message);
+      } else {
+        Alert.alert('Success', message);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to connect to MT5. Please check your credentials.');
+      const message = error instanceof Error ? error.message : 'Failed to connect to MT5';
+      if (Platform.OS === 'web') {
+        alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setConnecting(false);
     }
   };
 
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', onPress: signOut, style: 'destructive' }
-      ]
-    );
+  const handleAddRule = () => {
+    if (!newRuleName.trim() || !newRuleDescription.trim()) {
+      const message = 'Please provide both rule name and description';
+      if (Platform.OS === 'web') {
+        alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+      return;
+    }
+
+    addAutomationRule(newRuleName.trim(), newRuleDescription.trim());
+    setNewRuleName('');
+    setNewRuleDescription('');
   };
 
-  const handleVerifyEmail = () => {
-    if (user?.verified) {
-      Alert.alert('Info', 'Your email is already verified!');
+  const handleDeleteRule = (ruleId: string) => {
+    const message = 'Are you sure you want to delete this automation rule?';
+    if (Platform.OS === 'web') {
+      if (confirm(message)) {
+        deleteAutomationRule(ruleId);
+      }
     } else {
-      Alert.alert(
-        'Email Verification',
-        'A verification email has been sent to your email address.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Confirm Delete', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteAutomationRule(ruleId) }
+      ]);
     }
   };
 
   return (
-    <LinearGradient
-      colors={['#0F172A', '#1E293B']}
-      style={styles.container}
-    >
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
-          <MaterialIcons name="settings" size={24} color="#94A3B8" />
         </View>
 
-        <ScrollView style={styles.content}>
-          <Card style={styles.profileCard}>
-            <Card.Title
-              title="Profile"
-              titleStyle={styles.cardTitle}
-              left={() => <MaterialIcons name="person" size={24} color="#00C896" />}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.cardTitle}>User Profile</Text>
+            <View style={styles.profileRow}>
+              <Text style={styles.label}>Name:</Text>
+              <Text style={styles.value}>{user?.name}</Text>
+            </View>
+            <View style={styles.profileRow}>
+              <Text style={styles.label}>Email:</Text>
+              <Text style={styles.value}>{user?.email}</Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.cardTitle}>MT5 Connection</Text>
+            <View style={styles.connectionStatus}>
+              <Text style={styles.statusLabel}>Status:</Text>
+              <Text style={[styles.statusValue, { 
+                color: mt5Config.connected ? '#4CAF50' : '#F44336' 
+              }]}>
+                {mt5Config.connected ? 'Connected' : 'Disconnected'}
+              </Text>
+            </View>
+            
+            <TextInput
+              label="Server"
+              value={server}
+              onChangeText={setServer}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g., MetaQuotes-Demo"
             />
-            <Card.Content>
-              <View style={styles.profileInfo}>
-                <View style={styles.avatar}>
-                  <MaterialIcons name="account-circle" size={60} color="#64748B" />
-                </View>
-                <View style={styles.userDetails}>
-                  <Text style={styles.userName}>{user?.name}</Text>
-                  <Text style={styles.userEmail}>{user?.email}</Text>
-                  <View style={styles.verificationStatus}>
-                    <MaterialIcons
-                      name={user?.verified ? "verified" : "warning"}
-                      size={16}
-                      color={user?.verified ? "#10B981" : "#F59E0B"}
+            
+            <TextInput
+              label="Login"
+              value={login}
+              onChangeText={setLogin}
+              mode="outlined"
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              mode="outlined"
+              secureTextEntry
+              style={styles.input}
+            />
+            
+            <Button
+              mode="contained"
+              onPress={handleMT5Connect}
+              loading={connecting}
+              disabled={connecting}
+              style={styles.connectButton}
+            >
+              {mt5Config.connected ? 'Reconnect' : 'Connect'} to MT5
+            </Button>
+          </Card.Content>
+        </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.cardTitle}>Automation Rules</Text>
+            
+            <TextInput
+              label="Rule Name"
+              value={newRuleName}
+              onChangeText={setNewRuleName}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g., RSI Oversold Buy"
+            />
+            
+            <TextInput
+              label="Rule Description"
+              value={newRuleDescription}
+              onChangeText={setNewRuleDescription}
+              mode="outlined"
+              multiline
+              numberOfLines={3}
+              style={styles.input}
+              placeholder="Describe the automation rule..."
+            />
+            
+            <Button
+              mode="outlined"
+              onPress={handleAddRule}
+              style={styles.addRuleButton}
+            >
+              Add Rule
+            </Button>
+            
+            {automationRules.length === 0 ? (
+              <Text style={styles.noRules}>No automation rules configured</Text>
+            ) : (
+              automationRules.map((rule) => (
+                <View key={rule.id} style={styles.ruleItem}>
+                  <View style={styles.ruleHeader}>
+                    <Text style={styles.ruleName}>{rule.name}</Text>
+                    <Switch
+                      value={rule.isActive}
+                      onValueChange={() => toggleAutomationRule(rule.id)}
                     />
-                    <Text style={[
-                      styles.verificationText,
-                      { color: user?.verified ? "#10B981" : "#F59E0B" }
-                    ]}>
-                      {user?.verified ? 'Verified' : 'Unverified'}
-                    </Text>
                   </View>
+                  <Text style={styles.ruleDescription}>{rule.description}</Text>
+                  <Button
+                    mode="text"
+                    onPress={() => handleDeleteRule(rule.id)}
+                    textColor="#F44336"
+                    compact
+                  >
+                    Delete
+                  </Button>
                 </View>
-              </View>
-              {!user?.verified && (
-                <Button
-                  mode="outlined"
-                  onPress={handleVerifyEmail}
-                  style={styles.verifyButton}
-                  labelStyle={styles.verifyButtonText}
-                >
-                  Verify Email
-                </Button>
-              )}
-            </Card.Content>
-          </Card>
+              ))
+            )}
+          </Card.Content>
+        </Card>
 
-          <Card style={styles.mt5Card}>
-            <Card.Title
-              title="MetaTrader 5 Configuration"
-              titleStyle={styles.cardTitle}
-              left={() => (
-                <MaterialIcons
-                  name={mt5Config.connected ? "cloud-done" : "cloud-off"}
-                  size={24}
-                  color={mt5Config.connected ? "#10B981" : "#EF4444"}
-                />
-              )}
-            />
-            <Card.Content>
-              <View style={styles.connectionStatus}>
-                <Text style={styles.statusLabel}>Status:</Text>
-                <Text style={[
-                  styles.statusValue,
-                  { color: mt5Config.connected ? "#10B981" : "#EF4444" }
-                ]}>
-                  {mt5Config.connected ? 'Connected' : 'Disconnected'}
-                </Text>
-              </View>
-
-              <TextInput
-                label="MT5 Server"
-                value={server}
-                onChangeText={setServer}
-                mode="outlined"
-                style={styles.input}
-                placeholder="e.g., MetaQuotes-Demo"
-                theme={{
-                  colors: {
-                    primary: '#00C896',
-                    outline: '#475569',
-                    onSurfaceVariant: '#94A3B8',
-                  }
-                }}
-              />
-
-              <TextInput
-                label="Login ID"
-                value={login}
-                onChangeText={setLogin}
-                mode="outlined"
-                keyboardType="numeric"
-                style={styles.input}
-                theme={{
-                  colors: {
-                    primary: '#00C896',
-                    outline: '#475569',
-                    onSurfaceVariant: '#94A3B8',
-                  }
-                }}
-              />
-
-              <TextInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                mode="outlined"
-                secureTextEntry
-                style={styles.input}
-                theme={{
-                  colors: {
-                    primary: '#00C896',
-                    outline: '#475569',
-                    onSurfaceVariant: '#94A3B8',
-                  }
-                }}
-              />
-
-              <Button
-                mode="contained"
-                onPress={handleMT5Connect}
-                loading={connecting}
-                disabled={connecting}
-                style={styles.connectButton}
-                labelStyle={styles.connectButtonText}
-              >
-                {connecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect'}
-              </Button>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.preferencesCard}>
-            <Card.Title
-              title="Preferences"
-              titleStyle={styles.cardTitle}
-              left={() => <MaterialIcons name="tune" size={24} color="#8B5CF6" />}
-            />
-            <Card.Content>
-              <List.Item
-                title="Push Notifications"
-                description="Receive trading alerts and signals"
-                left={() => <MaterialIcons name="notifications" size={24} color="#94A3B8" />}
-                right={() => (
-                  <Switch
-                    value={notifications}
-                    onValueChange={setNotifications}
-                    color="#00C896"
-                  />
-                )}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-              />
-
-              <List.Item
-                title="Auto Sync"
-                description="Automatically sync data with MT5"
-                left={() => <MaterialIcons name="sync" size={24} color="#94A3B8" />}
-                right={() => (
-                  <Switch
-                    value={autoSync}
-                    onValueChange={setAutoSync}
-                    color="#00C896"
-                  />
-                )}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-              />
-
-              <List.Item
-                title="Risk Management"
-                description="Configure trading risk settings"
-                left={() => <MaterialIcons name="security" size={24} color="#94A3B8" />}
-                right={() => <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-                onPress={() => Alert.alert('Coming Soon', 'Risk management settings will be available soon!')}
-              />
-
-              <List.Item
-                title="Trading Hours"
-                description="Set active trading time windows"
-                left={() => <MaterialIcons name="schedule" size={24} color="#94A3B8" />}
-                right={() => <MaterialIcons name="chevron-right" size={24} color="#94A3B8" />}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-                onPress={() => Alert.alert('Coming Soon', 'Trading hours configuration will be available soon!')}
-              />
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.supportCard}>
-            <Card.Title
-              title="Support & Information"
-              titleStyle={styles.cardTitle}
-              left={() => <MaterialIcons name="help" size={24} color="#F59E0B" />}
-            />
-            <Card.Content>
-              <List.Item
-                title="Help Center"
-                description="Get help with trading and platform usage"
-                left={() => <MaterialIcons name="help-center" size={24} color="#94A3B8" />}
-                right={() => <MaterialIcons name="open-in-new" size={24} color="#94A3B8" />}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-                onPress={() => Alert.alert('Help Center', 'Opening help documentation...')}
-              />
-
-              <List.Item
-                title="Contact Support"
-                description="Get technical support and assistance"
-                left={() => <MaterialIcons name="support" size={24} color="#94A3B8" />}
-                right={() => <MaterialIcons name="open-in-new" size={24} color="#94A3B8" />}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-                onPress={() => Alert.alert('Support', 'Contact support at support@tradingbot.com')}
-              />
-
-              <List.Item
-                title="App Version"
-                description="TradingBot Pro v1.0.0"
-                left={() => <MaterialIcons name="info" size={24} color="#94A3B8" />}
-                titleStyle={styles.listItemTitle}
-                descriptionStyle={styles.listItemDescription}
-                style={styles.listItem}
-              />
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.signOutCard}>
-            <Card.Content>
-              <Button
-                mode="outlined"
-                onPress={handleSignOut}
-                style={styles.signOutButton}
-                labelStyle={styles.signOutButtonText}
-                icon="logout"
-              >
-                Sign Out
-              </Button>
-            </Card.Content>
-          </Card>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.cardTitle}>Account Actions</Text>
+            <Button
+              mode="outlined"
+              onPress={signOut}
+              style={styles.signOutButton}
+              buttonColor="#F44336"
+              textColor="#F44336"
+            >
+              Sign Out
+            </Button>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  safeArea: {
+  scrollView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 20,
-    paddingBottom: 10,
+    backgroundColor: '#007AFF',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#F8FAFC',
+    color: '#ffffff',
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  profileCard: {
-    backgroundColor: '#1E293B',
-    marginBottom: 16,
-    borderRadius: 12,
+  card: {
+    margin: 15,
+    elevation: 4,
   },
   cardTitle: {
-    color: '#F8FAFC',
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
   },
-  profileInfo: {
+  profileRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  avatar: {
-    marginRight: 16,
-  },
-  userDetails: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#F8FAFC',
-  },
-  userEmail: {
+  label: {
     fontSize: 16,
-    color: '#94A3B8',
-    marginVertical: 4,
+    color: '#666',
   },
-  verificationStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  verificationText: {
-    fontSize: 14,
+  value: {
+    fontSize: 16,
     fontWeight: '500',
-  },
-  verifyButton: {
-    borderColor: '#F59E0B',
-  },
-  verifyButtonText: {
-    color: '#F59E0B',
-  },
-  mt5Card: {
-    backgroundColor: '#1E293B',
-    marginBottom: 16,
-    borderRadius: 12,
+    color: '#333',
   },
   connectionStatus: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#334155',
+    marginBottom: 20,
+    padding: 10,
+    backgroundColor: '#f8f8f8',
     borderRadius: 8,
   },
   statusLabel: {
-    color: '#94A3B8',
     fontSize: 16,
+    color: '#666',
   },
   statusValue: {
     fontSize: 16,
     fontWeight: 'bold',
   },
   input: {
-    marginBottom: 16,
-    backgroundColor: '#334155',
+    marginBottom: 15,
   },
   connectButton: {
-    backgroundColor: '#00C896',
-    paddingVertical: 8,
+    marginTop: 10,
   },
-  connectButtonText: {
+  addRuleButton: {
+    marginBottom: 20,
+  },
+  noRules: {
+    textAlign: 'center',
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 10,
+  },
+  ruleItem: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+  },
+  ruleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  ruleName: {
     fontSize: 16,
-    color: '#FFFFFF',
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
   },
-  preferencesCard: {
-    backgroundColor: '#1E293B',
-    marginBottom: 16,
-    borderRadius: 12,
-  },
-  supportCard: {
-    backgroundColor: '#1E293B',
-    marginBottom: 16,
-    borderRadius: 12,
-  },
-  listItem: {
-    paddingVertical: 4,
-  },
-  listItemTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-  },
-  listItemDescription: {
-    color: '#94A3B8',
+  ruleDescription: {
     fontSize: 14,
-  },
-  signOutCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
+    color: '#666',
+    marginBottom: 10,
   },
   signOutButton: {
-    borderColor: '#EF4444',
-    paddingVertical: 8,
-  },
-  signOutButtonText: {
-    color: '#EF4444',
-    fontSize: 16,
+    marginTop: 10,
   },
 });

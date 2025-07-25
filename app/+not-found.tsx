@@ -1,64 +1,61 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Button } from 'react-native-paper';
 import { router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 
 export default function NotFound() {
   return (
-    <LinearGradient
-      colors={['#0F172A', '#1E293B']}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.content}>
-          <MaterialIcons name="error-outline" size={64} color="#EF4444" />
-          <Text style={styles.title}>Page Not Found</Text>
-          <Text style={styles.subtitle}>
-            The page you are looking for does not exist.
-          </Text>
-          <Button
-            mode="contained"
-            onPress={() => router.replace('/(tabs)')}
-            style={styles.homeButton}
-          >
-            Go to Dashboard
-          </Button>
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.content}>
+        <Text style={styles.title}>404</Text>
+        <Text style={styles.subtitle}>Page Not Found</Text>
+        <Text style={styles.description}>
+          The page you're looking for doesn't exist or has been moved.
+        </Text>
+        <Button
+          mode="contained"
+          onPress={() => router.replace('/(tabs)')}
+          style={styles.button}
+        >
+          Go to Dashboard
+        </Button>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 72,
     fontWeight: 'bold',
-    color: '#F8FAFC',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#007AFF',
+    marginBottom: 10,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 32,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
   },
-  homeButton: {
-    backgroundColor: '#00C896',
+  description: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  button: {
+    marginTop: 20,
   },
 });
