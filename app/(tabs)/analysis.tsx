@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, Chip } from 'react-native-paper';
+import { Card, Button, Chip, ProgressBar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTrading } from '../../hooks/useTrading';
@@ -9,24 +9,39 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function Analysis() {
-  const { indicators, selectedSymbol, updateIndicators, automationRules } = useTrading();
+  const { selectedSymbol, setSelectedSymbol, indicators, trades, mt5Config, realTimeData } = useTrading();
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1H');
+  
+  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+  const timeframes = ['5M', '15M', '1H', '4H', '1D'];
 
-  const handleRefresh = () => {
-    updateIndicators(selectedSymbol);
+  // Calculate trading statistics
+  const executedTrades = trades.filter(trade => trade.status === 'EXECUTED');
+  const profitableTrades = executedTrades.filter(trade => (trade.profit || 0) > 0);
+  const winRate = executedTrades.length > 0 ? (profitableTrades.length / executedTrades.length) * 100 : 0;
+  const totalProfit = executedTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+
+  // Get current symbol price from real-time data
+  const currentSymbolData = realTimeData.symbols[selectedSymbol];
+
+  const getFibonacciSignal = () => {
+    const price = currentSymbolData?.bid || 1.2000;
+    const level618 = indicators.fibonacciLevels[5]; // 0.618 level
+    return price > level618 ? 'Bullish' : 'Bearish';
   };
 
-  const getSignalStrength = (rsi: number, macd: number) => {
-    if ((rsi > 70 && macd < 0) || (rsi < 30 && macd > 0)) return 'Strong';
-    if ((rsi > 60 && macd > 0) || (rsi < 40 && macd < 0)) return 'Moderate';
-    return 'Weak';
+  const getRSISignal = () => {
+    if (indicators.rsi > 70) return { signal: 'Overbought', color: Colors.bearish };
+    if (indicators.rsi < 30) return { signal: 'Oversold', color: Colors.bullish };
+    return { signal: 'Neutral', color: Colors.textPrimary };
   };
 
-  const getSignalColor = (strength: string) => {
-    switch (strength) {
-      case 'Strong': return Colors.bullish;
-      case 'Moderate': return Colors.accent;
-      default: return Colors.textMuted;
-    }
+  const getMACDSignal = () => {
+    const isPositive = indicators.macd.signal > 0;
+    return {
+      signal: isPositive ? 'Bullish' : 'Bearish',
+      color: isPositive ? Colors.bullish : Colors.bearish
+    };
   };
 
   return (
@@ -38,233 +53,223 @@ export default function Analysis() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Technical Analysis</Text>
-            <Text style={styles.subtitle}>{selectedSymbol} • Advanced Analytics</Text>
+            <Text style={styles.subtitle}>Market insights & signals</Text>
           </View>
           <MaterialIcons name="analytics" size={28} color={Colors.primary} />
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Key Indicators Dashboard */}
-        <Card style={styles.dashboardCard}>
-          <LinearGradient
-            colors={[Colors.primary + '15', Colors.surface]}
-            style={styles.dashboardGradient}
-          >
-            <View style={styles.dashboardHeader}>
-              <Text style={styles.dashboardTitle}>Key Indicators</Text>
-              <Button 
-                mode="outlined" 
-                onPress={handleRefresh} 
-                compact
-                textColor={Colors.primary}
-                style={styles.refreshButton}
-                icon="refresh"
-              >
-                Update
-              </Button>
+        {/* Symbol & Timeframe Selection */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.cardTitle}>Analysis Setup</Text>
+              <MaterialIcons name="tune" size={24} color={Colors.primary} />
             </View>
             
-            <View style={styles.indicatorsRow}>
-              <View style={styles.indicatorItem}>
-                <View style={styles.indicatorIcon}>
-                  <MaterialIcons name="speed" size={24} color={Colors.primary} />
+            <View style={styles.selectionContainer}>
+              <Text style={styles.selectionLabel}>Market Pair</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.chipScroll}
+              >
+                {symbols.map((symbol) => (
+                  <Chip
+                    key={symbol}
+                    selected={selectedSymbol === symbol}
+                    onPress={() => setSelectedSymbol(symbol)}
+                    style={[
+                      styles.chip,
+                      selectedSymbol === symbol && styles.selectedChip
+                    ]}
+                    textStyle={[
+                      styles.chipText,
+                      selectedSymbol === symbol && styles.selectedChipText
+                    ]}
+                  >
+                    {symbol}
+                  </Chip>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.selectionContainer}>
+              <Text style={styles.selectionLabel}>Timeframe</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.chipScroll}
+              >
+                {timeframes.map((timeframe) => (
+                  <Chip
+                    key={timeframe}
+                    selected={selectedTimeframe === timeframe}
+                    onPress={() => setSelectedTimeframe(timeframe)}
+                    style={[
+                      styles.chip,
+                      selectedTimeframe === timeframe && styles.selectedChip
+                    ]}
+                    textStyle={[
+                      styles.chipText,
+                      selectedTimeframe === timeframe && styles.selectedChipText
+                    ]}
+                  >
+                    {timeframe}
+                  </Chip>
+                ))}
+              </ScrollView>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Technical Signals Summary */}
+        <Card style={styles.signalCard}>
+          <LinearGradient
+            colors={[Colors.primary + '10', Colors.surface]}
+            style={styles.signalGradient}
+          >
+            <View style={styles.signalHeader}>
+              <Text style={styles.signalTitle}>Technical Signals</Text>
+              <Text style={styles.signalSubtitle}>{selectedSymbol} • {selectedTimeframe}</Text>
+            </View>
+
+            <View style={styles.signalsGrid}>
+              <View style={styles.signalItem}>
+                <View style={styles.signalIcon}>
+                  <MaterialIcons name="speed" size={20} color={getRSISignal().color} />
                 </View>
-                <View style={styles.indicatorContent}>
-                  <Text style={styles.indicatorLabel}>RSI (14)</Text>
-                  <Text style={[styles.indicatorValue, { 
-                    color: indicators.rsi > 70 ? Colors.bearish : indicators.rsi < 30 ? Colors.bullish : Colors.textPrimary 
-                  }]}>
-                    {indicators.rsi.toFixed(2)}
+                <View style={styles.signalContent}>
+                  <Text style={styles.signalName}>RSI</Text>
+                  <Text style={[styles.signalValue, { color: getRSISignal().color }]}>
+                    {getRSISignal().signal}
                   </Text>
-                  <Text style={styles.indicatorStatus}>
-                    {indicators.rsi > 70 ? 'Overbought' : indicators.rsi < 30 ? 'Oversold' : 'Neutral'}
-                  </Text>
+                  <Text style={styles.signalDetail}>{indicators.rsi.toFixed(2)}</Text>
                 </View>
               </View>
-              
-              <View style={styles.indicatorDivider} />
-              
-              <View style={styles.indicatorItem}>
-                <View style={styles.indicatorIcon}>
-                  <MaterialIcons name="timeline" size={24} color={Colors.secondary} />
+
+              <View style={styles.signalItem}>
+                <View style={styles.signalIcon}>
+                  <MaterialIcons name="trending-up" size={20} color={getMACDSignal().color} />
                 </View>
-                <View style={styles.indicatorContent}>
-                  <Text style={styles.indicatorLabel}>Moving Average</Text>
-                  <Text style={styles.indicatorValue}>{indicators.movingAverage.toFixed(5)}</Text>
-                  <Text style={styles.indicatorStatus}>50-period SMA</Text>
+                <View style={styles.signalContent}>
+                  <Text style={styles.signalName}>MACD</Text>
+                  <Text style={[styles.signalValue, { color: getMACDSignal().color }]}>
+                    {getMACDSignal().signal}
+                  </Text>
+                  <Text style={styles.signalDetail}>{indicators.macd.signal.toFixed(4)}</Text>
                 </View>
               </View>
-              
-              <View style={styles.indicatorDivider} />
-              
-              <View style={styles.indicatorItem}>
-                <View style={styles.indicatorIcon}>
-                  <MaterialIcons name="trending-up" size={24} color={Colors.accent} />
+
+              <View style={styles.signalItem}>
+                <View style={styles.signalIcon}>
+                  <MaterialIcons name="timeline" size={20} color={Colors.secondary} />
                 </View>
-                <View style={styles.indicatorContent}>
-                  <Text style={styles.indicatorLabel}>MACD</Text>
-                  <Text style={[styles.indicatorValue, { 
-                    color: indicators.macd.signal > 0 ? Colors.bullish : Colors.bearish 
-                  }]}>
-                    {indicators.macd.signal.toFixed(5)}
-                  </Text>
-                  <Text style={styles.indicatorStatus}>
-                    {indicators.macd.signal > 0 ? 'Bullish' : 'Bearish'}
-                  </Text>
+                <View style={styles.signalContent}>
+                  <Text style={styles.signalName}>MA</Text>
+                  <Text style={styles.signalValue}>Trend</Text>
+                  <Text style={styles.signalDetail}>{indicators.movingAverage.toFixed(4)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.signalItem}>
+                <View style={styles.signalIcon}>
+                  <MaterialIcons name="architecture" size={20} color={Colors.accent} />
+                </View>
+                <View style={styles.signalContent}>
+                  <Text style={styles.signalName}>Fibonacci</Text>
+                  <Text style={styles.signalValue}>{getFibonacciSignal()}</Text>
+                  <Text style={styles.signalDetail}>61.8% Level</Text>
                 </View>
               </View>
             </View>
           </LinearGradient>
         </Card>
 
-        {/* Trading Signals */}
+        {/* Price Action Analysis */}
+        {currentSymbolData && (
+          <Card style={styles.card}>
+            <Card.Content style={styles.cardContent}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.cardTitle}>Price Action</Text>
+                <MaterialIcons name="show-chart" size={24} color={Colors.secondary} />
+              </View>
+              
+              <View style={styles.priceActionContainer}>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Current Bid</Text>
+                  <Text style={[styles.priceValue, { color: Colors.bearish }]}>
+                    {currentSymbolData.bid.toFixed(5)}
+                  </Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Current Ask</Text>
+                  <Text style={[styles.priceValue, { color: Colors.bullish }]}>
+                    {currentSymbolData.ask.toFixed(5)}
+                  </Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Spread</Text>
+                  <Text style={styles.priceValue}>
+                    {(currentSymbolData.spread * Math.pow(10, currentSymbolData.digits)).toFixed(1)} pips
+                  </Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Last Update</Text>
+                  <Text style={styles.priceValue}>
+                    {currentSymbolData.lastUpdate.toLocaleTimeString()}
+                  </Text>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Trading Performance */}
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Trading Signals</Text>
-              <MaterialIcons name="traffic" size={24} color={Colors.accent} />
+              <Text style={styles.cardTitle}>Trading Performance</Text>
+              <MaterialIcons name="assessment" size={24} color={Colors.accent} />
             </View>
             
-            <View style={styles.signalsContainer}>
-              <View style={styles.signalCard}>
-                <View style={styles.signalHeader}>
-                  <MaterialIcons 
-                    name={indicators.rsi > 50 ? "trending-up" : "trending-down"} 
-                    size={20} 
-                    color={indicators.rsi > 50 ? Colors.bullish : Colors.bearish} 
-                  />
-                  <Text style={styles.signalType}>Momentum Signal</Text>
-                  <Chip 
-                    style={[styles.signalChip, { 
-                      backgroundColor: getSignalColor(getSignalStrength(indicators.rsi, indicators.macd.signal)) + '20' 
-                    }]}
-                    textStyle={[styles.signalChipText, { 
-                      color: getSignalColor(getSignalStrength(indicators.rsi, indicators.macd.signal)) 
-                    }]}
-                  >
-                    {getSignalStrength(indicators.rsi, indicators.macd.signal)}
-                  </Chip>
-                </View>
-                <Text style={styles.signalDescription}>
-                  {indicators.rsi > 50 ? 'Upward momentum detected' : 'Downward momentum detected'} based on RSI and MACD convergence.
+            <View style={styles.performanceContainer}>
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>Win Rate</Text>
+                <Text style={[styles.performanceValue, { 
+                  color: winRate >= 60 ? Colors.bullish : winRate >= 40 ? Colors.primary : Colors.bearish 
+                }]}>
+                  {winRate.toFixed(1)}%
+                </Text>
+                <ProgressBar 
+                  progress={winRate / 100} 
+                  color={winRate >= 60 ? Colors.bullish : winRate >= 40 ? Colors.primary : Colors.bearish}
+                  style={styles.progressBar}
+                />
+              </View>
+              
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>Total P&L</Text>
+                <Text style={[styles.performanceValue, { 
+                  color: totalProfit >= 0 ? Colors.bullish : Colors.bearish 
+                }]}>
+                  {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
                 </Text>
               </View>
               
-              <View style={styles.signalCard}>
-                <View style={styles.signalHeader}>
-                  <MaterialIcons 
-                    name="show-chart" 
-                    size={20} 
-                    color={Colors.primary} 
-                  />
-                  <Text style={styles.signalType}>Trend Signal</Text>
-                  <Chip 
-                    style={[styles.signalChip, { backgroundColor: Colors.primary + '20' }]}
-                    textStyle={[styles.signalChipText, { color: Colors.primary }]}
-                  >
-                    Active
-                  </Chip>
-                </View>
-                <Text style={styles.signalDescription}>
-                  Price action suggests continuation of current trend with moderate volatility.
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>Total Trades</Text>
+                <Text style={styles.performanceValue}>{trades.length}</Text>
+              </View>
+              
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>Active Positions</Text>
+                <Text style={styles.performanceValue}>
+                  {mt5Config.connected ? realTimeData.positions.length : executedTrades.length}
                 </Text>
               </View>
             </View>
-          </Card.Content>
-        </Card>
-
-        {/* Fibonacci Analysis */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Fibonacci Retracement</Text>
-              <MaterialIcons name="grain" size={24} color={Colors.secondary} />
-            </View>
-            
-            <View style={styles.fibonacciContainer}>
-              {indicators.fibonacciLevels.map((level, index) => (
-                <View key={index} style={styles.fibonacciRow}>
-                  <Text style={styles.fibonacciLabel}>{(level * 100).toFixed(1)}%</Text>
-                  <View style={styles.fibonacciBarContainer}>
-                    <View style={[styles.fibonacciBar, { 
-                      width: `${level * 100}%`,
-                      backgroundColor: level > 0.618 ? Colors.bearish : level > 0.382 ? Colors.accent : Colors.bullish
-                    }]} />
-                  </View>
-                  <Text style={styles.fibonacciValue}>{(1.2000 + level * 0.01).toFixed(5)}</Text>
-                </View>
-              ))}
-            </View>
-            
-            <View style={styles.fibonacciSummary}>
-              <Text style={styles.fibonacciSummaryText}>
-                Key support/resistance levels based on Fibonacci retracement analysis. 
-                Watch for price reactions at these critical levels.
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Automation Rules */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Automation Rules</Text>
-              <MaterialIcons name="smart-toy" size={24} color={Colors.accent} />
-            </View>
-            
-            {automationRules.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="psychology" size={48} color={Colors.textMuted} />
-                <Text style={styles.emptyStateText}>No automation rules configured</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Set up automated trading rules in Settings to enhance your trading strategy
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.rulesContainer}>
-                {automationRules.map((rule) => (
-                  <View key={rule.id} style={styles.ruleCard}>
-                    <View style={styles.ruleHeader}>
-                      <View style={styles.ruleInfo}>
-                        <Text style={styles.ruleName}>{rule.name}</Text>
-                        <Text style={styles.ruleDescription}>{rule.description}</Text>
-                      </View>
-                      <View style={[styles.ruleStatus, { 
-                        backgroundColor: rule.isActive ? Colors.bullish + '20' : Colors.bearish + '20' 
-                      }]}>
-                        <MaterialIcons 
-                          name={rule.isActive ? "play-circle-filled" : "pause-circle-filled"} 
-                          size={16} 
-                          color={rule.isActive ? Colors.bullish : Colors.bearish} 
-                        />
-                        <Text style={[styles.ruleStatusText, {
-                          color: rule.isActive ? Colors.bullish : Colors.bearish
-                        }]}>
-                          {rule.isActive ? 'Active' : 'Paused'}
-                        </Text>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.ruleMetrics}>
-                      <View style={styles.ruleMetric}>
-                        <Text style={styles.ruleMetricLabel}>Triggers</Text>
-                        <Text style={styles.ruleMetricValue}>
-                          {Math.floor(Math.random() * 10) + 1}
-                        </Text>
-                      </View>
-                      <View style={styles.ruleMetric}>
-                        <Text style={styles.ruleMetricLabel}>Success Rate</Text>
-                        <Text style={styles.ruleMetricValue}>
-                          {(Math.random() * 30 + 60).toFixed(0)}%
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
           </Card.Content>
         </Card>
 
@@ -272,36 +277,35 @@ export default function Analysis() {
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Market Sentiment Analysis</Text>
-              <MaterialIcons name="psychology" size={24} color={Colors.primary} />
+              <Text style={styles.cardTitle}>Market Sentiment</Text>
+              <MaterialIcons name="psychology" size={24} color={Colors.secondary} />
             </View>
             
             <View style={styles.sentimentContainer}>
-              <View style={styles.sentimentMetric}>
-                <View style={styles.sentimentIcon}>
-                  <MaterialIcons name="trending-up" size={24} color={Colors.bullish} />
-                </View>
-                <Text style={styles.sentimentLabel}>Bull Strength</Text>
-                <Text style={styles.sentimentValue}>{Math.max(0, indicators.rsi - 50).toFixed(0)}%</Text>
-              </View>
-              
-              <View style={styles.sentimentMetric}>
-                <View style={styles.sentimentIcon}>
-                  <MaterialIcons name="trending-down" size={24} color={Colors.bearish} />
-                </View>
-                <Text style={styles.sentimentLabel}>Bear Strength</Text>
-                <Text style={styles.sentimentValue}>{Math.max(0, 50 - indicators.rsi).toFixed(0)}%</Text>
-              </View>
-              
-              <View style={styles.sentimentMetric}>
-                <View style={styles.sentimentIcon}>
-                  <MaterialIcons name="horizontal-rule" size={24} color={Colors.textMuted} />
-                </View>
-                <Text style={styles.sentimentLabel}>Neutral Zone</Text>
-                <Text style={styles.sentimentValue}>
-                  {indicators.rsi >= 45 && indicators.rsi <= 55 ? 'Yes' : 'No'}
+              <Text style={styles.sentimentText}>
+                Based on current technical indicators, {selectedSymbol} is showing{' '}
+                <Text style={{ 
+                  color: indicators.rsi > 50 ? Colors.bullish : Colors.bearish,
+                  fontWeight: '600' 
+                }}>
+                  {indicators.rsi > 50 ? 'bullish' : 'bearish'}
                 </Text>
-              </View>
+                {' '}momentum. The RSI at {indicators.rsi.toFixed(2)} indicates the market is{' '}
+                <Text style={{ 
+                  color: indicators.rsi > 70 ? Colors.bearish : indicators.rsi < 30 ? Colors.bullish : Colors.textPrimary,
+                  fontWeight: '600' 
+                }}>
+                  {indicators.rsi > 70 ? 'overbought' : indicators.rsi < 30 ? 'oversold' : 'in neutral territory'}
+                </Text>
+                . MACD signals suggest a{' '}
+                <Text style={{ 
+                  color: indicators.macd.signal > 0 ? Colors.bullish : Colors.bearish,
+                  fontWeight: '600' 
+                }}>
+                  {indicators.macd.signal > 0 ? 'bullish' : 'bearish'}
+                </Text>
+                {' '}trend continuation.
+              </Text>
             </View>
           </Card.Content>
         </Card>
@@ -338,69 +342,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  dashboardCard: {
-    marginTop: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    elevation: 8,
-  },
-  dashboardGradient: {
-    borderRadius: 16,
-    padding: 20,
-  },
-  dashboardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dashboardTitle: {
-    ...Typography.h5,
-    color: Colors.textPrimary,
-  },
-  refreshButton: {
-    borderColor: Colors.primary,
-  },
-  indicatorsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  indicatorItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  indicatorDivider: {
-    width: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: 16,
-  },
-  indicatorIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  indicatorContent: {
-    alignItems: 'center',
-  },
-  indicatorLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-  },
-  indicatorValue: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-    ...Typography.number,
-    marginBottom: 4,
-  },
-  indicatorStatus: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
   card: {
     marginBottom: 16,
     backgroundColor: Colors.surface,
@@ -414,190 +355,163 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   cardTitle: {
     ...Typography.h6,
     color: Colors.textPrimary,
   },
-  signalsContainer: {
-    gap: 16,
+  selectionContainer: {
+    marginBottom: 16,
+  },
+  selectionLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  chipScroll: {
+    marginBottom: 4,
+  },
+  chip: {
+    marginRight: 8,
+    backgroundColor: Colors.cardElevated,
+  },
+  selectedChip: {
+    backgroundColor: Colors.primary,
+  },
+  chipText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  selectedChipText: {
+    color: Colors.background,
+    fontWeight: '600',
   },
   signalCard: {
-    backgroundColor: Colors.cardElevated,
-    padding: 16,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 8,
+  },
+  signalGradient: {
+    borderRadius: 16,
+    padding: 20,
   },
   signalHeader: {
-    flexDirection: 'row',
+    marginBottom: 24,
     alignItems: 'center',
-    marginBottom: 12,
   },
-  signalType: {
-    ...Typography.body2,
+  signalTitle: {
+    ...Typography.h5,
     color: Colors.textPrimary,
-    fontWeight: '500',
-    marginLeft: 8,
-    flex: 1,
   },
-  signalChip: {
-    height: 24,
-  },
-  signalChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  signalDescription: {
+  signalSubtitle: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    lineHeight: 20,
+    marginTop: 4,
   },
-  fibonacciContainer: {
-    marginTop: 8,
+  signalsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  fibonacciRow: {
+  signalItem: {
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  fibonacciLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    width: 60,
-    fontWeight: '500',
-  },
-  fibonacciBarContainer: {
-    flex: 1,
-    height: 6,
-    backgroundColor: Colors.border,
-    borderRadius: 3,
-    marginHorizontal: 12,
-  },
-  fibonacciBar: {
-    height: 6,
-    borderRadius: 3,
-  },
-  fibonacciValue: {
-    ...Typography.caption,
-    color: Colors.textPrimary,
-    ...Typography.number,
-    width: 80,
-    textAlign: 'right',
-  },
-  fibonacciSummary: {
     backgroundColor: Colors.cardElevated,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  fibonacciSummaryText: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  emptyState: {
+  signalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    marginRight: 12,
   },
-  emptyStateText: {
-    ...Typography.h6,
+  signalContent: {
+    flex: 1,
+  },
+  signalName: {
+    ...Typography.caption,
     color: Colors.textMuted,
-    marginTop: 16,
+    marginBottom: 2,
   },
-  emptyStateSubtext: {
-    ...Typography.body2,
+  signalValue: {
+    ...Typography.body1,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  signalDetail: {
+    ...Typography.caption,
     color: Colors.textMuted,
-    marginTop: 8,
-    textAlign: 'center',
-    paddingHorizontal: 20,
+    ...Typography.number,
   },
-  rulesContainer: {
-    gap: 16,
-  },
-  ruleCard: {
+  priceActionContainer: {
     backgroundColor: Colors.cardElevated,
     padding: 16,
     borderRadius: 8,
   },
-  ruleHeader: {
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  ruleInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  ruleName: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  ruleDescription: {
+  priceLabel: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    lineHeight: 18,
   },
-  ruleStatus: {
+  priceValue: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    ...Typography.number,
+  },
+  performanceContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  ruleStatusText: {
-    ...Typography.caption,
+  performanceItem: {
+    width: '48%',
+    backgroundColor: Colors.cardElevated,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  performanceLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  performanceValue: {
+    ...Typography.h5,
+    color: Colors.textPrimary,
+    ...Typography.number,
     fontWeight: '600',
   },
-  ruleMetrics: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  ruleMetric: {
-    alignItems: 'center',
-  },
-  ruleMetricLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  ruleMetricValue: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-    marginTop: 2,
+  progressBar: {
+    marginTop: 8,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
   },
   sentimentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 8,
-  },
-  sentimentMetric: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  sentimentIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     backgroundColor: Colors.cardElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.accent,
   },
-  sentimentLabel: {
-    ...Typography.caption,
+  sentimentText: {
+    ...Typography.body2,
     color: Colors.textSecondary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  sentimentValue: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-    fontWeight: '600',
+    lineHeight: 22,
   },
 });

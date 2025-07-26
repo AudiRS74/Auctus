@@ -10,11 +10,24 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
-  const { trades, mt5Config, indicators } = useTrading();
+    const { user, signOut } = useAuth();
+  const { trades, mt5Config, indicators, realTimeData } = useTrading();
 
   const activeTrades = trades.filter(trade => trade.status === 'EXECUTED');
   const totalProfit = activeTrades.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+  
+  // Use real account data if connected, otherwise use simulated data
+  const displayBalance = mt5Config.connected && realTimeData.accountInfo 
+    ? realTimeData.accountInfo.balance 
+    : 10000; // Simulated balance
+  
+  const displayEquity = mt5Config.connected && realTimeData.accountInfo 
+    ? realTimeData.accountInfo.equity 
+    : displayBalance + totalProfit;
+    
+  const displayCurrency = mt5Config.connected && realTimeData.accountInfo 
+    ? realTimeData.accountInfo.currency 
+    : 'USD';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -46,30 +59,55 @@ export default function Dashboard() {
             </View>
             
             <View style={styles.profitContainer}>
-              <Text style={styles.profitLabel}>Total P&L</Text>
-              <Text style={[styles.profitValue, { 
-                color: totalProfit >= 0 ? Colors.bullish : Colors.bearish 
-              }]}>
-                {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
+              <Text style={styles.profitLabel}>
+                {mt5Config.connected ? 'Account Balance' : 'Total P&L'}
               </Text>
+              <Text style={[styles.profitValue, { 
+                color: mt5Config.connected 
+                  ? Colors.textPrimary 
+                  : totalProfit >= 0 ? Colors.bullish : Colors.bearish 
+              }]}>
+                {mt5Config.connected 
+                  ? `${displayCurrency} ${displayBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : `${totalProfit >= 0 ? '+' : ''}$${totalProfit.toFixed(2)}`
+                }
+              </Text>
+              {mt5Config.connected && (
+                <Text style={styles.equityLabel}>
+                  Equity: {displayCurrency} {displayEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+              )}
             </View>
             
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{trades.length}</Text>
-                <Text style={styles.statLabel}>Total Trades</Text>
+                <Text style={styles.statValue}>
+                  {mt5Config.connected ? realTimeData.positions.length : trades.length}
+                </Text>
+                <Text style={styles.statLabel}>
+                  {mt5Config.connected ? 'Open Positions' : 'Total Trades'}
+                </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{activeTrades.length}</Text>
-                <Text style={styles.statLabel}>Active Trades</Text>
+                <Text style={styles.statLabel}>
+                  {mt5Config.connected ? 'Today\'s Trades' : 'Active Trades'}
+                </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, { color: Colors.primary }]}>
-                  {trades.length > 0 ? ((activeTrades.filter(t => (t.profit || 0) > 0).length / trades.length) * 100).toFixed(0) : 0}%
+                  {mt5Config.connected && realTimeData.accountInfo 
+                    ? `1:${realTimeData.accountInfo.leverage}`
+                    : trades.length > 0 
+                      ? `${((activeTrades.filter(t => (t.profit || 0) > 0).length / trades.length) * 100).toFixed(0)}%`
+                      : '0%'
+                  }
                 </Text>
-                <Text style={styles.statLabel}>Win Rate</Text>
+                <Text style={styles.statLabel}>
+                  {mt5Config.connected ? 'Leverage' : 'Win Rate'}
+                </Text>
               </View>
             </View>
           </LinearGradient>
@@ -102,6 +140,12 @@ export default function Dashboard() {
               <View style={styles.connectionDetails}>
                 <Text style={styles.connectionLabel}>Server:</Text>
                 <Text style={styles.connectionValue}>{mt5Config.server}</Text>
+              </View>
+            )}
+            {mt5Config.connected && realTimeData.accountInfo && (
+              <View style={styles.connectionDetails}>
+                <Text style={styles.connectionLabel}>Account:</Text>
+                <Text style={styles.connectionValue}>{realTimeData.accountInfo.name}</Text>
               </View>
             )}
           </Card.Content>
@@ -263,6 +307,11 @@ const styles = StyleSheet.create({
   profitValue: {
     ...Typography.h1,
     ...Typography.number,
+  },
+  equityLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginTop: 8,
   },
   statsRow: {
     flexDirection: 'row',

@@ -1,32 +1,35 @@
-import React from 'react';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+
+  const tabBarStyle = {
+    height: Platform.select({
+      ios: insets.bottom + 60,
+      default: 70
+    }),
+    paddingTop: 8,
+    paddingBottom: Platform.select({
+      ios: insets.bottom + 8,
+      default: 8
+    }),
+    paddingHorizontal: 16,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  };
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? insets.bottom + 80 : 80,
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 16,
-          paddingTop: 16,
-          paddingHorizontal: 16,
-          elevation: 8,
-          shadowColor: Colors.background,
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-        },
+        headerShown: false,
+        tabBarStyle: tabBarStyle,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -35,7 +38,6 @@ export default function TabLayout() {
         tabBarIconStyle: {
           marginBottom: 0,
         },
-        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -62,6 +64,15 @@ export default function TabLayout() {
           title: 'Charts',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="show-chart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="realtime"
+        options={{
+          title: 'Live',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="wifi" size={size} color={color} />
           ),
         }}
       />

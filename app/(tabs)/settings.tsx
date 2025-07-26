@@ -10,8 +10,19 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function Settings() {
-  const { user, signOut } = useAuth();
-  const { mt5Config, connectMT5, addAutomationRule, automationRules, toggleAutomationRule, deleteAutomationRule } = useTrading();
+    const { user, signOut } = useAuth();
+  const { 
+    mt5Config, 
+    connectMT5, 
+    disconnectMT5, 
+    addAutomationRule, 
+    automationRules, 
+    toggleAutomationRule, 
+    deleteAutomationRule,
+    isConnecting,
+    connectionError,
+    realTimeData
+  } = useTrading();
   
   const [server, setServer] = useState(mt5Config.server);
   const [login, setLogin] = useState(mt5Config.login);
@@ -23,7 +34,7 @@ export default function Settings() {
 
   const handleMT5Connect = async () => {
     if (!server || !login || !password) {
-      const message = 'Please fill in all MT5 connection details';
+      const message = 'Please fill in all MT5 connection details (Server, Login, Password)';
       if (Platform.OS === 'web') {
         alert(message);
       } else {
@@ -32,24 +43,36 @@ export default function Settings() {
       return;
     }
 
-    setConnecting(true);
     try {
       await connectMT5({ server, login, password });
-      const message = 'Successfully connected to MT5';
+      const message = 'Successfully connected to MT5 broker! Your account is now linked.';
       if (Platform.OS === 'web') {
         alert(message);
       } else {
         Alert.alert('Success', message);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to connect to MT5';
+      const errorMsg = error instanceof Error ? error.message : 'Failed to connect to MT5';
+      const message = `Connection failed: ${errorMsg}\n\nPlease verify your credentials and server details.`;
       if (Platform.OS === 'web') {
         alert(message);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert('Connection Error', message);
       }
-    } finally {
-      setConnecting(false);
+    }
+  };
+
+  const handleMT5Disconnect = () => {
+    const message = 'Are you sure you want to disconnect from MT5? This will stop real-time trading.';
+    if (Platform.OS === 'web') {
+      if (confirm(message)) {
+        disconnectMT5();
+      }
+    } else {
+      Alert.alert('Confirm Disconnect', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Disconnect', style: 'destructive', onPress: disconnectMT5 }
+      ]);
     }
   };
 
@@ -130,20 +153,57 @@ export default function Settings() {
                 <Text style={styles.cardTitle}>MT5 Connection</Text>
               </View>
               <View style={[styles.connectionStatus, { 
-                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : Colors.bearish + '20' 
+                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : isConnecting ? Colors.primary + '20' : Colors.bearish + '20' 
               }]}>
                 <MaterialIcons 
-                  name={mt5Config.connected ? "wifi" : "wifi-off"} 
+                  name={mt5Config.connected ? "wifi" : isConnecting ? "sync" : "wifi-off"} 
                   size={16} 
-                  color={mt5Config.connected ? Colors.bullish : Colors.bearish} 
+                  color={mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish} 
                 />
                 <Text style={[styles.connectionStatusText, { 
-                  color: mt5Config.connected ? Colors.bullish : Colors.bearish 
+                  color: mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish 
                 }]}>
-                  {mt5Config.connected ? 'Connected' : 'Disconnected'}
+                  {mt5Config.connected ? 'Live Trading' : isConnecting ? 'Connecting...' : 'Offline'}
                 </Text>
               </View>
             </View>
+            
+            {connectionError && (
+              <View style={styles.errorContainer}>
+                <MaterialIcons name="error" size={20} color={Colors.bearish} />
+                <Text style={styles.errorText}>{connectionError}</Text>
+              </View>
+            )}
+
+            {mt5Config.connected && realTimeData.accountInfo && (
+              <View style={styles.accountInfoContainer}>
+                <Text style={styles.accountInfoTitle}>Account Information</Text>
+                <View style={styles.accountInfoGrid}>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Balance</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.balance.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Equity</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.equity.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Free Margin</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.freeMargin.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Leverage</Text>
+                    <Text style={styles.accountInfoValue}>1:{realTimeData.accountInfo.leverage}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
             
             <View style={styles.inputContainer}>
               <TextInput
@@ -152,7 +212,7 @@ export default function Settings() {
                 onChangeText={setServer}
                 mode="outlined"
                 style={styles.input}
-                placeholder="e.g., MetaQuotes-Demo"
+                placeholder="e.g., MetaQuotes-Demo, YourBroker-Live01"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -163,6 +223,7 @@ export default function Settings() {
                 }}
                 textColor={Colors.textPrimary}
                 left={<TextInput.Icon icon="server" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
               />
               
               <TextInput
@@ -172,6 +233,7 @@ export default function Settings() {
                 mode="outlined"
                 keyboardType="numeric"
                 style={styles.input}
+                placeholder="Your MT5 account number"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -182,6 +244,7 @@ export default function Settings() {
                 }}
                 textColor={Colors.textPrimary}
                 left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
               />
               
               <TextInput
@@ -191,6 +254,7 @@ export default function Settings() {
                 mode="outlined"
                 secureTextEntry
                 style={styles.input}
+                placeholder="Your MT5 account password"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -201,21 +265,36 @@ export default function Settings() {
                 }}
                 textColor={Colors.textPrimary}
                 left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
               />
             </View>
             
-            <Button
-              mode="contained"
-              onPress={handleMT5Connect}
-              loading={connecting}
-              disabled={connecting}
-              style={styles.connectButton}
-              buttonColor={mt5Config.connected ? Colors.secondary : Colors.primary}
-              textColor={Colors.background}
-              icon={mt5Config.connected ? "refresh" : "connection"}
-            >
-              {mt5Config.connected ? 'Reconnect' : 'Connect'} to MT5
-            </Button>
+            <View style={styles.buttonRow}>
+              <Button
+                mode="contained"
+                onPress={handleMT5Connect}
+                loading={isConnecting}
+                disabled={isConnecting}
+                style={[styles.connectButton, { flex: mt5Config.connected ? 1 : 2 }]}
+                buttonColor={Colors.primary}
+                textColor={Colors.background}
+                icon={isConnecting ? "sync" : "connection"}
+              >
+                {isConnecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect to MT5'}
+              </Button>
+              
+              {mt5Config.connected && (
+                <Button
+                  mode="outlined"
+                  onPress={handleMT5Disconnect}
+                  style={[styles.disconnectButton, { flex: 1 }]}
+                  textColor={Colors.bearish}
+                  icon="power-off"
+                >
+                  Disconnect
+                </Button>
+              )}
+            </View>
           </Card.Content>
         </Card>
 
