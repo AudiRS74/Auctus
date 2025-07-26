@@ -1,43 +1,27 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
-import { Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
-
-  const tabBarStyle = {
-    height: Platform.select({
-      ios: insets.bottom + 60,
-      default: 70
-    }),
-    paddingTop: 8,
-    paddingBottom: Platform.select({
-      ios: insets.bottom + 8,
-      default: 8
-    }),
-    paddingHorizontal: 16,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  };
-
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        headerShown: false,
-        tabBarStyle: tabBarStyle,
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopColor: Colors.border,
+          paddingTop: 8,
+          paddingBottom: 8,
+          height: 70,
+        },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
           marginTop: 4,
         },
-        tabBarIconStyle: {
-          marginBottom: 0,
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -50,11 +34,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="trading"
+        name="analysis"
         options={{
-          title: 'Trading',
+          title: 'Analysis',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="trending-up" size={size} color={color} />
+            <MaterialIcons name="analytics" size={size} color={color} />
           ),
         }}
       />
@@ -68,20 +52,29 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="realtime"
+        name="trading"
         options={{
-          title: 'Live',
+          title: 'Trading',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="wifi" size={size} color={color} />
+            <MaterialIcons name="trending-up" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="analysis"
+        name="automation"
         options={{
-          title: 'Analysis',
+          title: 'Automation',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="analytics" size={size} color={color} />
+            <MaterialIcons name="smart-toy" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="realtime"
+        options={{
+          title: 'Real-time',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="real-time-sync" size={size} color={color} />
           ),
         }}
       />

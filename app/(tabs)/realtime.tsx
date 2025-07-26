@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, Chip } from 'react-native-paper';
+import { Card, Button, DataTable, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTrading } from '../../hooks/useTrading';
@@ -10,68 +10,53 @@ import { Typography } from '../../constants/Typography';
 
 export default function RealTime() {
   const { 
-    mt5Config, 
     realTimeData, 
-    selectedSymbol, 
-    setSelectedSymbol, 
-    refreshAccountData,
-    connectionError 
+    mt5Config, 
+    refreshAccountData, 
+    selectedSymbol,
+    setSelectedSymbol,
+    automationStatus 
   } = useTrading();
-  
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const handleRefresh = async () => {
+  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+
+  const onRefresh = async () => {
     setRefreshing(true);
     try {
       await refreshAccountData();
+      setLastUpdate(new Date());
     } catch (error) {
-      console.error('Refresh failed:', error);
+      console.error('Error refreshing data:', error);
     } finally {
       setRefreshing(false);
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (mt5Config.connected) {
+      const interval = setInterval(() => {
+        setLastUpdate(new Date());
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [mt5Config.connected]);
+
+  const formatPrice = (price: number, digits: number = 5) => {
+    return price.toFixed(digits);
   };
 
-  const formatTime = (date: Date | null) => {
-    if (!date) return 'Never';
+  const formatTime = (date: Date) => {
     return date.toLocaleTimeString();
   };
 
-  if (!mt5Config.connected) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <LinearGradient
-          colors={Gradients.header}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Real-Time Trading</Text>
-              <Text style={styles.subtitle}>Live MT5 connection required</Text>
-            </View>
-            <MaterialIcons name="wifi-off" size={28} color={Colors.bearish} />
-          </View>
-        </LinearGradient>
-
-        <View style={styles.disconnectedContainer}>
-          <MaterialIcons name="cloud-off" size={64} color={Colors.textMuted} />
-          <Text style={styles.disconnectedTitle}>Not Connected to MT5</Text>
-          <Text style={styles.disconnectedText}>
-            Connect to your MT5 broker account in Settings to access real-time trading data and execute live trades.
-          </Text>
-          {connectionError && (
-            <View style={styles.errorContainer}>
-              <MaterialIcons name="error" size={20} color={Colors.bearish} />
-              <Text style={styles.errorText}>{connectionError}</Text>
-            </View>
-          )}
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const getSpreadInPips = (symbol: any) => {
+    if (!symbol) return 0;
+    return (symbol.spread * Math.pow(10, symbol.digits)).toFixed(1);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -81,11 +66,25 @@ export default function RealTime() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Live Trading</Text>
-            <Text style={styles.subtitle}>Real-time MT5 data</Text>
+            <Text style={styles.title}>Real-time Data</Text>
+            <Text style={styles.subtitle}>Live market feeds & positions</Text>
           </View>
-          <View style={styles.connectionIndicator}>
-            <MaterialIcons name="wifi" size={28} color={Colors.bullish} />
+          <View style={styles.headerStatus}>
+            <View style={[styles.statusIndicator, { 
+              backgroundColor: mt5Config.connected ? Colors.bullish + '20' : Colors.bearish + '20' 
+            }]}>
+              <MaterialIcons 
+                name={mt5Config.connected ? "wifi" : "wifi-off"} 
+                size={16} 
+                color={mt5Config.connected ? Colors.bullish : Colors.bearish} 
+              />
+              <Text style={[styles.statusText, { 
+                color: mt5Config.connected ? Colors.bullish : Colors.bearish 
+              }]}>
+                {mt5Config.connected ? 'Live' : 'Offline'}
+              </Text>
+            </View>
+            <MaterialIcons name="speed" size={28} color={Colors.primary} />
           </View>
         </View>
       </LinearGradient>
@@ -94,104 +93,149 @@ export default function RealTime() {
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
         }
       >
-        {/* Account Summary */}
+        {/* Connection Status */}
+        {!mt5Config.connected && (
+          <Card style={styles.warningCard}>
+            <Card.Content style={styles.warningContent}>
+              <MaterialIcons name="warning" size={24} color={Colors.accent} />
+              <View style={styles.warningText}>
+                <Text style={styles.warningTitle}>MT5 Connection Required</Text>
+                <Text style={styles.warningSubtitle}>
+                  Connect to MT5 in Settings to view real-time data
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Account Information */}
         {realTimeData.accountInfo && (
           <Card style={styles.accountCard}>
             <LinearGradient
-              colors={[Colors.primary + '20', Colors.surface]}
+              colors={[Colors.bullish + '10', Colors.surface]}
               style={styles.accountGradient}
             >
               <View style={styles.accountHeader}>
-                <Text style={styles.accountTitle}>Account Summary</Text>
-                <Text style={styles.lastUpdateText}>
-                  Updated: {formatTime(realTimeData.lastUpdate)}
+                <Text style={styles.accountTitle}>Account Overview</Text>
+                <Text style={styles.accountSubtitle}>
+                  Last updated: {formatTime(lastUpdate)}
                 </Text>
               </View>
-              
-              <View style={styles.balanceContainer}>
-                <Text style={styles.balanceLabel}>Balance</Text>
-                <Text style={styles.balanceValue}>
-                  {formatCurrency(realTimeData.accountInfo.balance, realTimeData.accountInfo.currency)}
-                </Text>
-              </View>
-              
-              <View style={styles.accountStatsGrid}>
-                <View style={styles.accountStat}>
-                  <Text style={styles.accountStatValue}>
-                    {formatCurrency(realTimeData.accountInfo.equity, realTimeData.accountInfo.currency)}
+
+              <View style={styles.accountGrid}>
+                <View style={styles.accountItem}>
+                  <Text style={styles.accountLabel}>Balance</Text>
+                  <Text style={[styles.accountValue, { color: Colors.bullish }]}>
+                    {realTimeData.accountInfo.currency} {realTimeData.accountInfo.balance.toFixed(2)}
                   </Text>
-                  <Text style={styles.accountStatLabel}>Equity</Text>
                 </View>
-                <View style={styles.accountStat}>
-                  <Text style={styles.accountStatValue}>
-                    {formatCurrency(realTimeData.accountInfo.freeMargin, realTimeData.accountInfo.currency)}
+                <View style={styles.accountItem}>
+                  <Text style={styles.accountLabel}>Equity</Text>
+                  <Text style={styles.accountValue}>
+                    {realTimeData.accountInfo.currency} {realTimeData.accountInfo.equity.toFixed(2)}
                   </Text>
-                  <Text style={styles.accountStatLabel}>Free Margin</Text>
                 </View>
-                <View style={styles.accountStat}>
-                  <Text style={styles.accountStatValue}>
+                <View style={styles.accountItem}>
+                  <Text style={styles.accountLabel}>Free Margin</Text>
+                  <Text style={styles.accountValue}>
+                    {realTimeData.accountInfo.currency} {realTimeData.accountInfo.freeMargin.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.accountItem}>
+                  <Text style={styles.accountLabel}>Margin Level</Text>
+                  <Text style={[styles.accountValue, { 
+                    color: realTimeData.accountInfo.marginLevel > 200 ? Colors.bullish : 
+                           realTimeData.accountInfo.marginLevel > 100 ? Colors.primary : Colors.bearish 
+                  }]}>
                     {realTimeData.accountInfo.marginLevel.toFixed(2)}%
                   </Text>
-                  <Text style={styles.accountStatLabel}>Margin Level</Text>
-                </View>
-                <View style={styles.accountStat}>
-                  <Text style={styles.accountStatValue}>
-                    1:{realTimeData.accountInfo.leverage}
-                  </Text>
-                  <Text style={styles.accountStatLabel}>Leverage</Text>
                 </View>
               </View>
             </LinearGradient>
           </Card>
         )}
 
-        {/* Market Prices */}
+        {/* Live Prices */}
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
               <Text style={styles.cardTitle}>Live Market Prices</Text>
-              <MaterialIcons name="show-chart" size={24} color={Colors.primary} />
+              <MaterialIcons name="trending-up" size={24} color={Colors.secondary} />
             </View>
-            
-            {Object.keys(realTimeData.symbols).length > 0 ? (
-              <View style={styles.symbolsList}>
-                {Object.entries(realTimeData.symbols).map(([symbol, data]) => (
-                  <View key={symbol} style={styles.symbolRow}>
-                    <View style={styles.symbolInfo}>
-                      <Text style={styles.symbolName}>{symbol}</Text>
-                      <Text style={styles.symbolSpread}>
-                        Spread: {(data.spread * Math.pow(10, data.digits)).toFixed(1)} pips
+
+            {/* Symbol Selection */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.symbolScroll}
+              contentContainerStyle={styles.symbolScrollContent}
+            >
+              {symbols.map((symbol) => (
+                <Chip
+                  key={symbol}
+                  selected={selectedSymbol === symbol}
+                  onPress={() => setSelectedSymbol(symbol)}
+                  style={[
+                    styles.symbolChip,
+                    selectedSymbol === symbol && styles.selectedSymbolChip
+                  ]}
+                  textStyle={[
+                    styles.symbolChipText,
+                    selectedSymbol === symbol && styles.selectedSymbolChipText
+                  ]}
+                >
+                  {symbol}
+                </Chip>
+              ))}
+            </ScrollView>
+
+            {/* Price Data Table */}
+            <DataTable style={styles.dataTable}>
+              <DataTable.Header>
+                <DataTable.Title>Symbol</DataTable.Title>
+                <DataTable.Title numeric>Bid</DataTable.Title>
+                <DataTable.Title numeric>Ask</DataTable.Title>
+                <DataTable.Title numeric>Spread</DataTable.Title>
+              </DataTable.Header>
+
+              {symbols.map((symbol) => {
+                const symbolData = realTimeData.symbols[symbol];
+                return (
+                  <DataTable.Row key={symbol}>
+                    <DataTable.Cell>
+                      <Text style={[styles.symbolName, {
+                        color: selectedSymbol === symbol ? Colors.primary : Colors.textPrimary
+                      }]}>
+                        {symbol}
                       </Text>
-                    </View>
-                    <View style={styles.symbolPrices}>
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.priceLabel}>Bid</Text>
-                        <Text style={[styles.priceValue, { color: Colors.bearish }]}>
-                          {data.bid.toFixed(data.digits)}
-                        </Text>
-                      </View>
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.priceLabel}>Ask</Text>
-                        <Text style={[styles.priceValue, { color: Colors.bullish }]}>
-                          {data.ask.toFixed(data.digits)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="timeline" size={48} color={Colors.textMuted} />
-                <Text style={styles.emptyStateText}>No live prices yet</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Market data will appear once subscribed to symbols
-                </Text>
-              </View>
-            )}
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <Text style={[styles.priceValue, { color: Colors.bearish }]}>
+                        {symbolData ? formatPrice(symbolData.bid, symbolData.digits) : 'N/A'}
+                      </Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <Text style={[styles.priceValue, { color: Colors.bullish }]}>
+                        {symbolData ? formatPrice(symbolData.ask, symbolData.digits) : 'N/A'}
+                      </Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <Text style={styles.spreadValue}>
+                        {symbolData ? getSpreadInPips(symbolData) : '0.0'}
+                      </Text>
+                    </DataTable.Cell>
+                  </DataTable.Row>
+                );
+              })}
+            </DataTable>
           </Card.Content>
         </Card>
 
@@ -200,111 +244,91 @@ export default function RealTime() {
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
               <Text style={styles.cardTitle}>Open Positions</Text>
-              <MaterialIcons name="account-balance" size={24} color={Colors.secondary} />
+              <Text style={styles.sectionSubtitle}>
+                {realTimeData.positions.length} positions
+              </Text>
             </View>
-            
-            {realTimeData.positions.length > 0 ? (
-              <View style={styles.positionsList}>
-                {realTimeData.positions.map((position, index) => (
-                  <View key={position.ticket}>
-                    <View style={styles.positionRow}>
-                      <View style={styles.positionHeader}>
-                        <View style={styles.positionSymbolContainer}>
-                          <Text style={styles.positionSymbol}>{position.symbol}</Text>
-                          <Chip
-                            style={[
-                              styles.positionTypeChip,
-                              { backgroundColor: position.type === 'BUY' ? Colors.bullish + '20' : Colors.bearish + '20' }
-                            ]}
-                            textStyle={[
-                              styles.positionTypeText,
-                              { color: position.type === 'BUY' ? Colors.bullish : Colors.bearish }
-                            ]}
-                            compact
-                          >
-                            {position.type}
-                          </Chip>
-                        </View>
-                        <Text style={[
-                          styles.positionProfit,
-                          { color: position.profit >= 0 ? Colors.bullish : Colors.bearish }
-                        ]}>
-                          {position.profit >= 0 ? '+' : ''}{position.profit.toFixed(2)}
-                        </Text>
-                      </View>
-                      
-                      <View style={styles.positionDetails}>
-                        <View style={styles.positionDetailItem}>
-                          <Text style={styles.positionDetailLabel}>Volume</Text>
-                          <Text style={styles.positionDetailValue}>{position.volume}</Text>
-                        </View>
-                        <View style={styles.positionDetailItem}>
-                          <Text style={styles.positionDetailLabel}>Open Price</Text>
-                          <Text style={styles.positionDetailValue}>{position.openPrice.toFixed(5)}</Text>
-                        </View>
-                        <View style={styles.positionDetailItem}>
-                          <Text style={styles.positionDetailLabel}>Current</Text>
-                          <Text style={styles.positionDetailValue}>{position.currentPrice.toFixed(5)}</Text>
-                        </View>
-                        <View style={styles.positionDetailItem}>
-                          <Text style={styles.positionDetailLabel}>Ticket</Text>
-                          <Text style={styles.positionDetailValue}>#{position.ticket}</Text>
-                        </View>
-                      </View>
-                    </View>
-                    {index < realTimeData.positions.length - 1 && (
-                      <View style={styles.positionDivider} />
-                    )}
-                  </View>
-                ))}
-              </View>
-            ) : (
+
+            {realTimeData.positions.length === 0 ? (
               <View style={styles.emptyState}>
-                <MaterialIcons name="account-balance-wallet" size={48} color={Colors.textMuted} />
+                <MaterialIcons name="portfolio" size={48} color={Colors.textMuted} />
                 <Text style={styles.emptyStateText}>No open positions</Text>
                 <Text style={styles.emptyStateSubtext}>
-                  Your open trades will appear here
+                  Your active trades will appear here
                 </Text>
               </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <DataTable style={styles.positionsTable}>
+                  <DataTable.Header>
+                    <DataTable.Title style={styles.positionColumn}>Symbol</DataTable.Title>
+                    <DataTable.Title style={styles.positionColumn}>Type</DataTable.Title>
+                    <DataTable.Title style={styles.positionColumn} numeric>Volume</DataTable.Title>
+                    <DataTable.Title style={styles.positionColumn} numeric>Open Price</DataTable.Title>
+                    <DataTable.Title style={styles.positionColumn} numeric>Current</DataTable.Title>
+                    <DataTable.Title style={styles.positionColumn} numeric>P&L</DataTable.Title>
+                  </DataTable.Header>
+
+                  {realTimeData.positions.map((position) => (
+                    <DataTable.Row key={position.ticket}>
+                      <DataTable.Cell style={styles.positionColumn}>
+                        <Text style={styles.positionSymbol}>{position.symbol}</Text>
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.positionColumn}>
+                        <View style={[styles.positionTypeBadge, {
+                          backgroundColor: position.type === 'BUY' ? Colors.bullish + '20' : Colors.bearish + '20'
+                        }]}>
+                          <Text style={[styles.positionType, {
+                            color: position.type === 'BUY' ? Colors.bullish : Colors.bearish
+                          }]}>
+                            {position.type}
+                          </Text>
+                        </View>
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.positionColumn} numeric>
+                        <Text style={styles.positionValue}>{position.volume.toFixed(2)}</Text>
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.positionColumn} numeric>
+                        <Text style={styles.positionValue}>{position.openPrice.toFixed(5)}</Text>
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.positionColumn} numeric>
+                        <Text style={styles.positionValue}>{position.currentPrice.toFixed(5)}</Text>
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.positionColumn} numeric>
+                        <Text style={[styles.positionProfit, {
+                          color: position.profit >= 0 ? Colors.bullish : Colors.bearish
+                        }]}>
+                          {position.profit >= 0 ? '+' : ''}{position.profit.toFixed(2)}
+                        </Text>
+                      </DataTable.Cell>
+                    </DataTable.Row>
+                  ))}
+                </DataTable>
+              </ScrollView>
             )}
           </Card.Content>
         </Card>
 
-        {/* Connection Status */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Connection Status</Text>
-              <MaterialIcons name="settings-ethernet" size={24} color={Colors.accent} />
-            </View>
-            
-            <View style={styles.connectionDetails}>
-              <View style={styles.connectionDetailRow}>
-                <Text style={styles.connectionDetailLabel}>Server</Text>
-                <Text style={styles.connectionDetailValue}>{mt5Config.server}</Text>
-              </View>
-              <View style={styles.connectionDetailRow}>
-                <Text style={styles.connectionDetailLabel}>Account</Text>
-                <Text style={styles.connectionDetailValue}>{mt5Config.login}</Text>
-              </View>
-              <View style={styles.connectionDetailRow}>
-                <Text style={styles.connectionDetailLabel}>Status</Text>
-                <View style={styles.statusContainer}>
-                  <MaterialIcons name="wifi" size={16} color={Colors.bullish} />
-                  <Text style={[styles.statusText, { color: Colors.bullish }]}>
-                    Connected - Live Trading Active
+        {/* Automation Status */}
+        {automationStatus.isRunning && (
+          <Card style={styles.automationCard}>
+            <LinearGradient
+              colors={[Colors.primary + '10', Colors.surface]}
+              style={styles.automationGradient}
+            >
+              <View style={styles.automationHeader}>
+                <MaterialIcons name="smart-toy" size={24} color={Colors.primary} />
+                <View style={styles.automationInfo}>
+                  <Text style={styles.automationTitle}>Automation Active</Text>
+                  <Text style={styles.automationSubtitle}>
+                    {automationStatus.activeStrategies} strategies running
                   </Text>
                 </View>
+                <View style={styles.pulseDot} />
               </View>
-              <View style={styles.connectionDetailRow}>
-                <Text style={styles.connectionDetailLabel}>Last Update</Text>
-                <Text style={styles.connectionDetailValue}>
-                  {formatTime(realTimeData.lastUpdate)}
-                </Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
+            </LinearGradient>
+          </Card>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -334,49 +358,53 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 4,
   },
-  connectionIndicator: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
+  headerStatus: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statusText: {
+    ...Typography.caption,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  disconnectedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  disconnectedTitle: {
-    ...Typography.h5,
-    color: Colors.textMuted,
-    marginTop: 24,
+  warningCard: {
+    marginTop: 20,
     marginBottom: 16,
+    backgroundColor: Colors.accent + '20',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.accent,
   },
-  disconnectedText: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  errorContainer: {
+  warningContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bearish + '15',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 20,
+    paddingVertical: 16,
   },
-  errorText: {
-    ...Typography.body2,
-    color: Colors.bearish,
-    marginLeft: 8,
+  warningText: {
+    marginLeft: 12,
     flex: 1,
+  },
+  warningTitle: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  warningSubtitle: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
   accountCard: {
     marginTop: 20,
@@ -389,52 +417,41 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   accountHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 24,
     alignItems: 'center',
-    marginBottom: 20,
   },
   accountTitle: {
     ...Typography.h5,
     color: Colors.textPrimary,
   },
-  lastUpdateText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  balanceContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  balanceLabel: {
+  accountSubtitle: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    marginBottom: 8,
+    marginTop: 4,
   },
-  balanceValue: {
-    ...Typography.h1,
-    color: Colors.textPrimary,
-    ...Typography.number,
-  },
-  accountStatsGrid: {
+  accountGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  accountStat: {
+  accountItem: {
     width: '48%',
+    backgroundColor: Colors.cardElevated,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
     alignItems: 'center',
-    marginBottom: 16,
   },
-  accountStatValue: {
+  accountLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  accountValue: {
     ...Typography.h6,
     color: Colors.textPrimary,
+    fontWeight: '600',
     ...Typography.number,
-  },
-  accountStatLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginTop: 4,
   },
   card: {
     marginBottom: 16,
@@ -455,125 +472,48 @@ const styles = StyleSheet.create({
     ...Typography.h6,
     color: Colors.textPrimary,
   },
-  symbolsList: {
-    gap: 16,
+  sectionSubtitle: {
+    ...Typography.body2,
+    color: Colors.textMuted,
   },
-  symbolRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  symbolScroll: {
+    marginBottom: 16,
+  },
+  symbolScrollContent: {
+    paddingRight: 16,
+  },
+  symbolChip: {
+    marginRight: 8,
     backgroundColor: Colors.cardElevated,
-    padding: 16,
+  },
+  selectedSymbolChip: {
+    backgroundColor: Colors.primary,
+  },
+  symbolChipText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  selectedSymbolChipText: {
+    color: Colors.background,
+    fontWeight: '600',
+  },
+  dataTable: {
+    backgroundColor: Colors.cardElevated,
     borderRadius: 8,
   },
-  symbolInfo: {
-    flex: 1,
-  },
   symbolName: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  symbolSpread: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  symbolPrices: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  priceContainer: {
-    alignItems: 'center',
-  },
-  priceLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 4,
+    ...Typography.body1,
+    fontWeight: '600',
   },
   priceValue: {
     ...Typography.body1,
     fontWeight: '600',
     ...Typography.number,
   },
-  positionsList: {
-    gap: 0,
-  },
-  positionRow: {
-    paddingVertical: 16,
-  },
-  positionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  positionSymbolContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  positionSymbol: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-    marginRight: 12,
-  },
-  positionTypeChip: {
-    height: 24,
-  },
-  positionTypeText: {
-    ...Typography.caption,
-    fontWeight: '600',
-  },
-  positionProfit: {
-    ...Typography.h6,
-    ...Typography.number,
-    fontWeight: '600',
-  },
-  positionDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  positionDetailItem: {
-    alignItems: 'center',
-  },
-  positionDetailLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 4,
-  },
-  positionDetailValue: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
-    ...Typography.number,
-  },
-  positionDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  connectionDetails: {
-    gap: 12,
-  },
-  connectionDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  connectionDetailLabel: {
+  spreadValue: {
     ...Typography.body2,
     color: Colors.textSecondary,
-  },
-  connectionDetailValue: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
     ...Typography.number,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusText: {
-    ...Typography.body2,
-    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',
@@ -589,5 +529,72 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
+  },
+  positionsTable: {
+    backgroundColor: Colors.cardElevated,
+    borderRadius: 8,
+    minWidth: 600,
+  },
+  positionColumn: {
+    minWidth: 100,
+  },
+  positionSymbol: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  positionTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  positionType: {
+    ...Typography.caption,
+    fontWeight: '600',
+  },
+  positionValue: {
+    ...Typography.body2,
+    color: Colors.textPrimary,
+    ...Typography.number,
+  },
+  positionProfit: {
+    ...Typography.body1,
+    fontWeight: '600',
+    ...Typography.number,
+  },
+  automationCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    elevation: 4,
+  },
+  automationGradient: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  automationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  automationInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  automationTitle: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  automationSubtitle: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  pulseDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.bullish,
   },
 });
