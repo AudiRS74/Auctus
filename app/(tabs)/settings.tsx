@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, TextInput, Switch, Divider } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +10,7 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function Settings() {
-    const { user, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { 
     mt5Config, 
     connectMT5, 
@@ -27,83 +27,96 @@ export default function Settings() {
   const [server, setServer] = useState(mt5Config.server);
   const [login, setLogin] = useState(mt5Config.login);
   const [password, setPassword] = useState(mt5Config.password);
-  const [connecting, setConnecting] = useState(false);
   
   const [newRuleName, setNewRuleName] = useState('');
   const [newRuleDescription, setNewRuleDescription] = useState('');
 
+  // Cross-platform alert state
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onOk?: () => void;
+    onCancel?: () => void;
+    showCancel?: boolean;
+  }>({ visible: false, title: '', message: '' });
+
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    if (Platform.OS === 'web') {
+      setAlertConfig({ visible: true, title, message, onOk });
+    } else {
+      // Use React Native Alert for mobile
+      const Alert = require('react-native').Alert;
+      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+    }
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+    if (Platform.OS === 'web') {
+      setAlertConfig({ 
+        visible: true, 
+        title, 
+        message, 
+        onOk: onConfirm, 
+        onCancel,
+        showCancel: true 
+      });
+    } else {
+      const Alert = require('react-native').Alert;
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel', onPress: onCancel },
+        { text: 'OK', onPress: onConfirm }
+      ]);
+    }
+  };
+
   const handleMT5Connect = async () => {
     if (!server || !login || !password) {
-      const message = 'Please fill in all MT5 connection details (Server, Login, Password)';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Error', message);
-      }
+      showAlert('Connection Error', 'Please fill in all MT5 connection details (Server, Login, Password)');
       return;
     }
 
     try {
       await connectMT5({ server, login, password });
-      const message = 'Successfully connected to MT5 broker! Your account is now linked.';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Success', message);
-      }
+      showAlert('Success', 'Successfully connected to MT5 demo server! Your account is now linked.\n\nNote: This is a demonstration mode. Use server "demo" with login "12345" and password "demo123" for testing.');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to connect to MT5';
-      const message = `Connection failed: ${errorMsg}\n\nPlease verify your credentials and server details.`;
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Connection Error', message);
-      }
+      showAlert('Connection Error', `Connection failed: ${errorMsg}\n\nFor demo testing, use:\nServer: demo\nLogin: 12345\nPassword: demo123`);
     }
   };
 
   const handleMT5Disconnect = () => {
-    const message = 'Are you sure you want to disconnect from MT5? This will stop real-time trading.';
-    if (Platform.OS === 'web') {
-      if (confirm(message)) {
+    showConfirm(
+      'Confirm Disconnect', 
+      'Are you sure you want to disconnect from MT5? This will stop real-time trading.',
+      () => {
         disconnectMT5();
+        showAlert('Disconnected', 'Successfully disconnected from MT5 demo server.');
       }
-    } else {
-      Alert.alert('Confirm Disconnect', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Disconnect', style: 'destructive', onPress: disconnectMT5 }
-      ]);
-    }
+    );
   };
 
   const handleAddRule = () => {
     if (!newRuleName.trim() || !newRuleDescription.trim()) {
-      const message = 'Please provide both rule name and description';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Error', message);
-      }
+      showAlert('Validation Error', 'Please provide both rule name and description');
       return;
     }
 
     addAutomationRule(newRuleName.trim(), newRuleDescription.trim());
     setNewRuleName('');
     setNewRuleDescription('');
+    showAlert('Success', 'Automation rule added successfully!');
   };
 
   const handleDeleteRule = (ruleId: string) => {
-    const message = 'Are you sure you want to delete this automation rule?';
-    if (Platform.OS === 'web') {
-      if (confirm(message)) {
+    showConfirm(
+      'Confirm Delete',
+      'Are you sure you want to delete this automation rule?',
+      () => {
         deleteAutomationRule(ruleId);
+        showAlert('Deleted', 'Automation rule deleted successfully.');
       }
-    } else {
-      Alert.alert('Confirm Delete', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteAutomationRule(ruleId) }
-      ]);
-    }
+    );
   };
 
   return (
@@ -122,6 +135,24 @@ export default function Settings() {
       </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Demo Mode Notice */}
+        <Card style={styles.demoNoticeCard}>
+          <Card.Content style={styles.demoNoticeContent}>
+            <View style={styles.demoNoticeHeader}>
+              <MaterialIcons name="info" size={24} color={Colors.primary} />
+              <Text style={styles.demoNoticeTitle}>Demo Mode Active</Text>
+            </View>
+            <Text style={styles.demoNoticeText}>
+              This is a demonstration version of the MT5 trading platform. Use the following test credentials:
+            </Text>
+            <View style={styles.demoCredentials}>
+              <Text style={styles.demoCredentialItem}>Server: <Text style={styles.demoCredentialValue}>demo</Text></Text>
+              <Text style={styles.demoCredentialItem}>Login: <Text style={styles.demoCredentialValue}>12345</Text></Text>
+              <Text style={styles.demoCredentialItem}>Password: <Text style={styles.demoCredentialValue}>demo123</Text></Text>
+            </View>
+          </Card.Content>
+        </Card>
+
         {/* User Profile */}
         <Card style={styles.profileCard}>
           <LinearGradient
@@ -133,11 +164,11 @@ export default function Settings() {
                 <MaterialIcons name="account-circle" size={64} color={Colors.primary} />
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{user?.name || 'Trader'}</Text>
-                <Text style={styles.profileEmail}>{user?.email}</Text>
+                <Text style={styles.profileName}>{user?.name || 'Demo Trader'}</Text>
+                <Text style={styles.profileEmail}>{user?.email || 'demo@trader.com'}</Text>
                 <View style={styles.profileBadge}>
                   <MaterialIcons name="verified" size={16} color={Colors.bullish} />
-                  <Text style={styles.profileBadgeText}>Verified Account</Text>
+                  <Text style={styles.profileBadgeText}>Demo Account</Text>
                 </View>
               </View>
             </View>
@@ -150,7 +181,7 @@ export default function Settings() {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <MaterialIcons name="cloud" size={24} color={Colors.secondary} />
-                <Text style={styles.cardTitle}>MT5 Connection</Text>
+                <Text style={styles.cardTitle}>MT5 Demo Connection</Text>
               </View>
               <View style={[styles.connectionStatus, { 
                 backgroundColor: mt5Config.connected ? Colors.bullish + '20' : isConnecting ? Colors.primary + '20' : Colors.bearish + '20' 
@@ -163,7 +194,7 @@ export default function Settings() {
                 <Text style={[styles.connectionStatusText, { 
                   color: mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish 
                 }]}>
-                  {mt5Config.connected ? 'Live Trading' : isConnecting ? 'Connecting...' : 'Offline'}
+                  {mt5Config.connected ? 'Demo Trading' : isConnecting ? 'Connecting...' : 'Offline'}
                 </Text>
               </View>
             </View>
@@ -177,7 +208,7 @@ export default function Settings() {
 
             {mt5Config.connected && realTimeData.accountInfo && (
               <View style={styles.accountInfoContainer}>
-                <Text style={styles.accountInfoTitle}>Account Information</Text>
+                <Text style={styles.accountInfoTitle}>Demo Account Information</Text>
                 <View style={styles.accountInfoGrid}>
                   <View style={styles.accountInfoItem}>
                     <Text style={styles.accountInfoLabel}>Balance</Text>
@@ -212,7 +243,7 @@ export default function Settings() {
                 onChangeText={setServer}
                 mode="outlined"
                 style={styles.input}
-                placeholder="e.g., MetaQuotes-Demo, YourBroker-Live01"
+                placeholder="Enter: demo (for testing)"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -233,7 +264,7 @@ export default function Settings() {
                 mode="outlined"
                 keyboardType="numeric"
                 style={styles.input}
-                placeholder="Your MT5 account number"
+                placeholder="Enter: 12345 (for testing)"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -254,7 +285,7 @@ export default function Settings() {
                 mode="outlined"
                 secureTextEntry
                 style={styles.input}
-                placeholder="Your MT5 account password"
+                placeholder="Enter: demo123 (for testing)"
                 theme={{
                   colors: {
                     primary: Colors.primary,
@@ -280,7 +311,7 @@ export default function Settings() {
                 textColor={Colors.background}
                 icon={isConnecting ? "sync" : "connection"}
               >
-                {isConnecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect to MT5'}
+                {isConnecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect Demo'}
               </Button>
               
               {mt5Config.connected && (
@@ -437,14 +468,14 @@ export default function Settings() {
             </View>
             
             <View style={styles.dangerZone}>
-              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              <Text style={styles.dangerZoneTitle}>Account Actions</Text>
               <Text style={styles.dangerZoneDescription}>
                 These actions will affect your account and trading session
               </Text>
               
               <Button
                 mode="outlined"
-                onPress={signOut}
+                onPress={() => showConfirm('Sign Out', 'Are you sure you want to sign out?', signOut)}
                 style={styles.signOutButton}
                 textColor={Colors.bearish}
                 icon="logout"
@@ -455,6 +486,40 @@ export default function Settings() {
           </Card.Content>
         </Card>
       </ScrollView>
+
+      {/* Cross-platform Alert Modal */}
+      {Platform.OS === 'web' && (
+        <Modal visible={alertConfig.visible} transparent animationType="fade">
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertContainer}>
+              <Text style={styles.alertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+              <View style={styles.alertButtons}>
+                {alertConfig.showCancel && (
+                  <TouchableOpacity
+                    style={[styles.alertButton, styles.alertCancelButton]}
+                    onPress={() => {
+                      alertConfig.onCancel?.();
+                      setAlertConfig(prev => ({ ...prev, visible: false }));
+                    }}
+                  >
+                    <Text style={styles.alertCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.alertButton, styles.alertOkButton]}
+                  onPress={() => {
+                    alertConfig.onOk?.();
+                    setAlertConfig(prev => ({ ...prev, visible: false }));
+                  }}
+                >
+                  <Text style={styles.alertOkButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -487,8 +552,53 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  profileCard: {
+  demoNoticeCard: {
     marginTop: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 8,
+    backgroundColor: Colors.primary + '10',
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  demoNoticeContent: {
+    paddingVertical: 20,
+  },
+  demoNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  demoNoticeTitle: {
+    ...Typography.h6,
+    color: Colors.primary,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  demoNoticeText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  demoCredentials: {
+    backgroundColor: Colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  demoCredentialItem: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  demoCredentialValue: {
+    color: Colors.primary,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  profileCard: {
     marginBottom: 16,
     borderRadius: 16,
     elevation: 8,
@@ -572,6 +682,52 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontWeight: '600',
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bearish + '10',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    ...Typography.body2,
+    color: Colors.bearish,
+    flex: 1,
+    lineHeight: 18,
+  },
+  accountInfoContainer: {
+    backgroundColor: Colors.bullish + '10',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  accountInfoTitle: {
+    ...Typography.body1,
+    color: Colors.bullish,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  accountInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  accountInfoItem: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  accountInfoLabel: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  accountInfoValue: {
+    ...Typography.body2,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -579,8 +735,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: Colors.inputBackground,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   connectButton: {
     marginTop: 4,
+  },
+  disconnectButton: {
+    marginTop: 4,
+    borderColor: Colors.bearish,
   },
   addRuleButton: {
     borderColor: Colors.accent,
@@ -677,5 +841,67 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     borderColor: Colors.bearish,
+  },
+  // Cross-platform alert styles
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alertContainer: {
+    backgroundColor: Colors.surface,
+    padding: 24,
+    borderRadius: 12,
+    minWidth: 300,
+    maxWidth: '90%',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  alertTitle: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  alertButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: Colors.border,
+  },
+  alertOkButton: {
+    backgroundColor: Colors.primary,
+  },
+  alertCancelButtonText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  alertOkButtonText: {
+    ...Typography.body2,
+    color: Colors.background,
+    fontWeight: '500',
   },
 });

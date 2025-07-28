@@ -67,67 +67,47 @@ export interface MT5TradeResult {
 class MT5Service {
   private isConnected: boolean = false;
   private credentials: MT5Credentials | null = null;
-  private websocket: WebSocket | null = null;
   private eventHandlers: { [key: string]: Function[] } = {};
-  private reconnectInterval: NodeJS.Timeout | null = null;
+  private simulationInterval: NodeJS.Timeout | null = null;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private accountData: MT5AccountInfo | null = null;
+  private positions: MT5Position[] = [];
+  private symbols: { [key: string]: MT5Symbol } = {};
 
-    async connect(credentials: MT5Credentials): Promise<boolean> {
-    console.log('Attempting to connect to MT5 with server:', credentials.server);
+  async connect(credentials: MT5Credentials): Promise<boolean> {
+    console.log('MT5 Demo Mode: Simulating connection to broker server:', credentials.server);
     
     try {
       this.credentials = credentials;
       
-      // Pre-validate credentials before attempting connection
+      // Validate credentials format
       const validationError = this.validateCredentials(credentials);
       if (validationError) {
         console.error('Credential validation failed:', validationError);
         throw new Error(validationError);
       }
       
-      // Get broker API URL with enhanced mapping
-      const apiUrl = this.getBrokerApiUrl(credentials.server);
+      // Simulate connection delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      if (!apiUrl) {
-        const errorMsg = `Cannot find API endpoint for broker server: ${credentials.server}. Please verify the server name with your broker.`;
-        console.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      console.log('Connecting to API URL:', apiUrl);
-
-      // Establish WebSocket connection with retry logic
-      await this.connectWebSocketWithRetry(apiUrl, credentials);
-      
-      // Authenticate with the broker using improved authentication
-      console.log('WebSocket connected, starting authentication...');
-      const authResult = await this.authenticate(credentials);
+      // Simulate authentication based on credentials
+      const authResult = this.simulateAuthentication(credentials);
       
       if (authResult.success) {
-        console.log('Authentication successful, connection established');
+        console.log('Demo Mode: Authentication successful');
         this.isConnected = true;
-        this.startHeartbeat();
+        this.initializeSimulatedData();
+        this.startSimulation();
         this.emit('connected', { credentials });
         return true;
       } else {
-        console.error('Authentication failed:', authResult.error);
-        // Close WebSocket if authentication failed
-        if (this.websocket) {
-          this.websocket.close();
-          this.websocket = null;
-        }
+        console.error('Demo Mode: Authentication failed:', authResult.error);
         throw new Error(authResult.error || 'Authentication failed');
       }
     } catch (error) {
-      console.error('MT5 Connection Error:', error);
+      console.error('MT5 Demo Connection Error:', error);
       this.isConnected = false;
       
-      // Cleanup on connection failure
-      if (this.websocket) {
-        this.websocket.close();
-        this.websocket = null;
-      }
-      
-      // Emit error event with detailed information
       this.emit('error', {
         type: 'connection_error',
         message: error instanceof Error ? error.message : 'Unknown connection error',
@@ -139,275 +119,10 @@ class MT5Service {
     }
   }
 
-  private async connectWebSocketWithRetry(apiUrl: string, credentials: MT5Credentials): Promise<void> {
-    const maxRetries = 3;
-    let retryCount = 0;
-    
-    while (retryCount < maxRetries) {
-      try {
-        await this.connectWebSocket(apiUrl, credentials);
-        return; // Success, exit retry loop
-      } catch (error) {
-        retryCount++;
-        console.error(`WebSocket connection attempt ${retryCount} failed:`, error);
-        
-        if (retryCount >= maxRetries) {
-          throw new Error(`Failed to establish connection after ${maxRetries} attempts. ${error instanceof Error ? error.message : 'Connection error'}`);
-        }
-        
-        // Wait before retry (exponential backoff)
-        const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
-        console.log(`Retrying connection in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  disconnect(): void {
-    this.isConnected = false;
-    
-    if (this.websocket) {
-      this.websocket.close();
-      this.websocket = null;
-    }
-    
-    if (this.reconnectInterval) {
-      clearInterval(this.reconnectInterval);
-      this.reconnectInterval = null;
-    }
-    
-    this.emit('disconnected');
-  }
-
-    private getBrokerApiUrl(server: string): string | null {
-    console.log('Resolving API URL for server:', server);
-    
-    // Normalize server name for better matching
-    const serverLower = server.toLowerCase().trim();
-    
-    // Map common broker servers to their API endpoints
-    const brokerEndpoints: { [key: string]: string } = {
-      // MetaQuotes official demo servers
-      'metaquotes-demo': 'wss://mt5-demo-01.metaquotes.net:443/ws',
-      'metaquotes-demo01': 'wss://mt5-demo-01.metaquotes.net:443/ws',
-      'metaquotes-demo02': 'wss://mt5-demo-02.metaquotes.net:443/ws',
-      'metaquotes-demo03': 'wss://mt5-demo-03.metaquotes.net:443/ws',
-      
-      // Popular broker patterns (these would need to be updated with real endpoints)
-      // IC Markets
-      'icmarkets-demo': 'wss://webapi-demo.icmarkets.com/ws',
-      'icmarkets-live': 'wss://webapi.icmarkets.com/ws',
-      'icmarkets-live01': 'wss://webapi.icmarkets.com/ws',
-      'icmarkets-live02': 'wss://webapi2.icmarkets.com/ws',
-      
-      // XM
-      'xm-demo': 'wss://mt5-demo.xm.com/ws',
-      'xm-real': 'wss://mt5.xm.com/ws',
-      'xm-live': 'wss://mt5.xm.com/ws',
-      
-      // XTB
-      'xtb-demo': 'wss://ws-demo.xtb.com/mt5',
-      'xtb-real': 'wss://ws.xtb.com/mt5',
-      
-      // FXCM
-      'fxcm-demo': 'wss://demo-api.fxcm.com/ws',
-      'fxcm-real': 'wss://api.fxcm.com/ws',
-      
-      // Oanda
-      'oanda-demo': 'wss://stream-fxpractice.oanda.com/ws',
-      'oanda-live': 'wss://stream-fxtrade.oanda.com/ws',
-      
-      // FXTM
-      'fxtm-demo': 'wss://demo-mt5.fxtm.com/ws',
-      'fxtm-live': 'wss://mt5.fxtm.com/ws',
-      
-      // Exness
-      'exness-demo': 'wss://demo-mt5.exness.com/ws',
-      'exness-real': 'wss://mt5.exness.com/ws',
-      
-      // Pepperstone
-      'pepperstone-demo': 'wss://demo-mt5.pepperstone.com/ws',
-      'pepperstone-live': 'wss://mt5.pepperstone.com/ws',
-    };
-    
-    // Try exact match first
-    let apiUrl = brokerEndpoints[serverLower];
-    
-    if (!apiUrl) {
-      // Try pattern matching for common server naming conventions
-      for (const [pattern, url] of Object.entries(brokerEndpoints)) {
-        if (serverLower.includes(pattern.split('-')[0])) {
-          console.log(`Matched server pattern: ${pattern} for ${server}`);
-          apiUrl = url;
-          break;
-        }
-      }
-    }
-    
-    // If still no match, try to construct a reasonable default
-    if (!apiUrl) {
-      console.log('No specific endpoint found, constructing default URL');
-      
-      // Extract broker name from server string
-      const brokerName = serverLower.split('-')[0];
-      
-      // Check if it's a demo or live server
-      const isDemo = serverLower.includes('demo') || serverLower.includes('test');
-      const subdomain = isDemo ? 'demo-mt5' : 'mt5';
-      
-      // Try different common URL patterns
-      const possibleUrls = [
-        `wss://${subdomain}.${brokerName}.com/ws`,
-        `wss://webapi${isDemo ? '-demo' : ''}.${brokerName}.com/ws`,
-        `wss://mt5${isDemo ? '-demo' : ''}.${brokerName}.com/ws`,
-        `wss://api${isDemo ? '-demo' : ''}.${brokerName}.com/mt5/ws`,
-      ];
-      
-      // For now, return the first constructed URL
-      // In a real implementation, you might want to test connectivity
-      apiUrl = possibleUrls[0];
-      
-      console.log(`Constructed API URL: ${apiUrl} for server: ${server}`);
-    }
-    
-    return apiUrl;
-  }
-
-    private async connectWebSocket(apiUrl: string, credentials: MT5Credentials): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        console.log('Creating WebSocket connection to:', apiUrl);
-        
-        // Clean up existing connection if any
-        if (this.websocket) {
-          this.websocket.close();
-          this.websocket = null;
-        }
-        
-        this.websocket = new WebSocket(apiUrl);
-        
-        const connectionTimeout = setTimeout(() => {
-          if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket connection timeout');
-            this.websocket.close();
-            reject(new Error(`Connection timeout to ${credentials.server}. Please check your internet connection and verify the server name with your broker.`));
-          }
-        }, 12000); // Increased timeout for slower connections
-        
-        this.websocket.onopen = () => {
-          clearTimeout(connectionTimeout);
-          console.log('MT5 WebSocket connection established successfully');
-          resolve();
-        };
-        
-        this.websocket.onmessage = (event) => {
-          try {
-            this.handleWebSocketMessage(event.data);
-          } catch (error) {
-            console.error('Error handling WebSocket message:', error);
-          }
-        };
-        
-        this.websocket.onclose = (event) => {
-          clearTimeout(connectionTimeout);
-          console.log('MT5 WebSocket connection closed:', event.code, event.reason);
-          
-          // Provide specific error messages based on close codes
-          if (event.code === 1006) {
-            console.error('WebSocket closed abnormally - possible network issue or server unavailable');
-          } else if (event.code === 1002) {
-            console.error('WebSocket closed due to protocol error');
-          } else if (event.code === 1003) {
-            console.error('WebSocket closed due to unsupported data type');
-          }
-          
-          this.handleDisconnection();
-        };
-        
-        this.websocket.onerror = (error) => {
-          clearTimeout(connectionTimeout);
-          console.error('MT5 WebSocket connection error:', error);
-          
-          // Provide more helpful error messages
-          let errorMessage = 'Failed to connect to broker server';
-          
-          if (apiUrl.includes('demo')) {
-            errorMessage += '. If using a demo account, verify the demo server name with your broker';
-          } else {
-            errorMessage += '. If using a live account, verify the live server name with your broker';
-          }
-          
-          errorMessage += `. Server: ${credentials.server}`;
-          
-          reject(new Error(errorMessage));
-        };
-        
-      } catch (error) {
-        console.error('Error creating WebSocket connection:', error);
-        reject(error);
-      }
-    });
-  }
-
-    private async authenticate(credentials: MT5Credentials): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-        throw new Error('WebSocket connection not established');
-      }
-
-      // Validate credentials format before attempting authentication
-      const validationError = this.validateCredentials(credentials);
-      if (validationError) {
-        return { success: false, error: validationError };
-      }
-
-      // Determine broker-specific authentication method
-      const authMethod = this.getBrokerAuthMethod(credentials.server);
-      
-      return new Promise((resolve) => {
-        // Increased timeout for broker authentication
-        const timeout = setTimeout(() => {
-          resolve({ 
-            success: false, 
-            error: 'Authentication timeout. Please check your internet connection and broker server status.' 
-          });
-        }, 15000); // Increased to 15 seconds
-
-        const handleAuthResponse = (data: any) => {
-          clearTimeout(timeout);
-          if (data.type === 'auth_response' || data.type === 'login_response') {
-            if (data.success) {
-              resolve({ success: true });
-            } else {
-              // Provide specific error messages based on broker response
-              const errorMsg = this.parseAuthenticationError(data.error, data.errorCode);
-              resolve({ success: false, error: errorMsg });
-            }
-          }
-        };
-
-        // Set up response handler
-        this.once('message', handleAuthResponse);
-
-        // Send broker-specific authentication request
-        const authRequest = this.createAuthRequest(credentials, authMethod);
-        console.log('Sending authentication request for broker:', credentials.server);
-        
-        this.websocket!.send(JSON.stringify(authRequest));
-      });
-    } catch (error) {
-      console.error('Authentication error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Authentication process failed' 
-      };
-    }
-  }
-
   private validateCredentials(credentials: MT5Credentials): string | null {
     // Validate server format
     if (!credentials.server || credentials.server.trim().length === 0) {
-      return 'Server name is required. Please enter your broker\'s server name (e.g., YourBroker-Demo, YourBroker-Live01)';
+      return 'Server name is required. Please enter your broker server name (e.g., YourBroker-Demo, YourBroker-Live01)';
     }
 
     // Validate login format (should be numeric for most brokers)
@@ -439,305 +154,350 @@ class MT5Service {
     return null; // No validation errors
   }
 
-  private getBrokerAuthMethod(server: string): string {
-    const serverLower = server.toLowerCase();
-    
-    // Different brokers may use different authentication methods
-    if (serverLower.includes('metaquotes') || serverLower.includes('demo')) {
-      return 'standard';
-    } else if (serverLower.includes('icmarkets')) {
-      return 'icmarkets';
-    } else if (serverLower.includes('xm') || serverLower.includes('xtb')) {
-      return 'european';
-    } else if (serverLower.includes('oanda') || serverLower.includes('fxcm')) {
-      return 'us_regulated';
-    } else {
-      return 'standard'; // Default method
+  private simulateAuthentication(credentials: MT5Credentials): { success: boolean; error?: string } {
+    // Demo mode authentication logic
+    const serverLower = credentials.server.toLowerCase();
+    const login = credentials.login;
+    const password = credentials.password;
+
+    // Demo credentials that always work for testing
+    const demoCredentials = [
+      { server: 'demo', login: '12345', password: 'demo123' },
+      { server: 'metaquotes-demo', login: '123456', password: 'password' },
+      { server: 'test', login: '1234567', password: 'test123' },
+    ];
+
+    // Check if using demo credentials
+    const isDemoCredentials = demoCredentials.some(demo => 
+      serverLower.includes(demo.server.toLowerCase()) && 
+      login === demo.login && 
+      password === demo.password
+    );
+
+    if (isDemoCredentials) {
+      return { success: true };
     }
+
+    // Simulate realistic validation errors for demo purposes
+    if (login.length < 5) {
+      return { success: false, error: 'Invalid account number. Account numbers must be at least 5 digits long.' };
+    }
+
+    if (password.length < 6) {
+      return { success: false, error: 'Invalid password. Password must be at least 6 characters long.' };
+    }
+
+    // For demo purposes, accept any reasonable looking credentials
+    if (serverLower.includes('demo') || serverLower.includes('test')) {
+      return { success: true };
+    }
+
+    // Show helpful message for live server attempts
+    return { 
+      success: false, 
+      error: `Demo Mode: Cannot connect to live server "${credentials.server}". This is a demonstration version. Use server "demo" with login "12345" and password "demo123" to test the application.` 
+    };
   }
 
-  private createAuthRequest(credentials: MT5Credentials, authMethod: string): any {
-    const baseRequest = {
-      timestamp: Date.now(),
-      client_version: '1.0.0',
-      platform: 'mobile_app'
+  private initializeSimulatedData(): void {
+    // Initialize demo account data
+    this.accountData = {
+      balance: 10000.00,
+      equity: 10000.00,
+      margin: 0.00,
+      freeMargin: 10000.00,
+      marginLevel: 0,
+      currency: 'USD',
+      leverage: 100,
+      name: 'Demo Trader',
+      company: 'Demo Broker Ltd.',
     };
 
-    switch (authMethod) {
-      case 'icmarkets':
-        return {
-          ...baseRequest,
-          type: 'login',
-          account: parseInt(credentials.login),
-          password: credentials.password,
-          server: credentials.server,
-          protocol_version: '2.0'
-        };
-      
-      case 'european':
-        return {
-          ...baseRequest,
-          type: 'authenticate',
-          login: credentials.login,
-          password: credentials.password,
-          server_name: credentials.server,
-          auth_type: 'mt5_native'
-        };
-      
-      case 'us_regulated':
-        return {
-          ...baseRequest,
-          type: 'connect',
-          credentials: {
-            account_id: credentials.login,
-            password: credentials.password,
-            server: credentials.server,
-          },
-          compliance_check: true
-        };
-      
-      default: // standard
-        return {
-          ...baseRequest,
-          type: 'auth',
-          login: credentials.login,
-          password: credentials.password,
-          server: credentials.server
-        };
-    }
+    // Initialize common forex symbols with realistic prices
+    const symbolData = [
+      { name: 'EURUSD', basePrice: 1.0845 },
+      { name: 'GBPUSD', basePrice: 1.2634 },
+      { name: 'USDJPY', basePrice: 148.75 },
+      { name: 'AUDUSD', basePrice: 0.6823 },
+      { name: 'USDCAD', basePrice: 1.3456 },
+      { name: 'USDCHF', basePrice: 0.8934 },
+      { name: 'NZDUSD', basePrice: 0.6245 },
+      { name: 'EURGBP', basePrice: 0.8587 },
+    ];
+
+    symbolData.forEach(symbol => {
+      const spread = 0.0002; // 2 pips spread
+      const bid = symbol.basePrice - spread / 2;
+      const ask = symbol.basePrice + spread / 2;
+
+      this.symbols[symbol.name] = {
+        name: symbol.name,
+        bid: Number(bid.toFixed(5)),
+        ask: Number(ask.toFixed(5)),
+        spread: Number((ask - bid).toFixed(5)),
+        digits: 5,
+        point: 0.00001,
+        lastUpdate: new Date(),
+      };
+    });
+
+    // Initialize some demo positions
+    this.positions = [
+      {
+        ticket: 12345,
+        symbol: 'EURUSD',
+        type: 'BUY',
+        volume: 0.1,
+        openPrice: 1.0832,
+        currentPrice: 1.0845,
+        profit: 13.00,
+        swap: 0.00,
+        commission: -1.00,
+        comment: 'Demo trade',
+        openTime: new Date(Date.now() - 3600000), // 1 hour ago
+      },
+      {
+        ticket: 12346,
+        symbol: 'GBPUSD',
+        type: 'SELL',
+        volume: 0.05,
+        openPrice: 1.2642,
+        currentPrice: 1.2634,
+        profit: 4.00,
+        swap: 0.00,
+        commission: -0.50,
+        comment: 'Demo trade',
+        openTime: new Date(Date.now() - 7200000), // 2 hours ago
+      },
+    ];
+
+    console.log('Demo data initialized:', { account: this.accountData, symbolCount: Object.keys(this.symbols).length });
   }
 
-  private parseAuthenticationError(errorMsg: string, errorCode?: number): string {
-    // Parse common MT5 authentication error codes and messages
-    if (errorCode) {
-      switch (errorCode) {
-        case 4:
-          return 'Invalid login credentials. Please check your account number and password';
-        case 5:
-          return 'Account disabled or suspended. Please contact your broker';
-        case 6:
-          return 'Server not found. Please check your server name with your broker';
-        case 7:
-          return 'Connection rejected by server. Please try again later';
-        case 8:
-          return 'Invalid account type or trading not allowed';
-        case 9:
-          return 'Account expired. Please contact your broker to renew';
-        case 10:
-          return 'Maximum connections exceeded. Close other MT5 connections and try again';
-        case 64:
-          return 'Account blocked. Please contact your broker immediately';
-        case 65:
-          return 'Wrong account password. Please check your password';
-        case 128:
-          return 'Trading disabled for this account. Contact your broker';
-        case 129:
-          return 'Account not certified. Complete broker verification process';
-        case 130:
-          return 'Invalid server or server temporarily unavailable';
-        default:
-          return `Authentication failed (Error ${errorCode}). Please contact your broker for assistance`;
-      }
-    }
+  private startSimulation(): void {
+    // Start price simulation
+    this.simulationInterval = setInterval(() => {
+      this.updateSimulatedPrices();
+      this.updateSimulatedPositions();
+      this.updateSimulatedAccount();
+    }, 2000); // Update every 2 seconds
 
-    // Parse common error messages
-    if (errorMsg) {
-      const msgLower = errorMsg.toLowerCase();
-      
-      if (msgLower.includes('invalid login') || msgLower.includes('wrong login')) {
-        return 'Invalid account number. Please verify your MT5 account number with your broker';
-      } else if (msgLower.includes('invalid password') || msgLower.includes('wrong password')) {
-        return 'Incorrect password. Please check your MT5 account password';
-      } else if (msgLower.includes('server') && msgLower.includes('not found')) {
-        return 'Server not found. Please verify the server name with your broker (e.g., YourBroker-Demo, YourBroker-Live01)';
-      } else if (msgLower.includes('connection') && msgLower.includes('refused')) {
-        return 'Connection refused by server. Check if your account is active and try again';
-      } else if (msgLower.includes('timeout')) {
-        return 'Connection timeout. Please check your internet connection and broker server status';
-      } else if (msgLower.includes('blocked') || msgLower.includes('suspended')) {
-        return 'Account blocked or suspended. Please contact your broker immediately';
-      } else if (msgLower.includes('expired')) {
-        return 'Account or password expired. Please contact your broker to reset';
+    // Start heartbeat
+    this.heartbeatInterval = setInterval(() => {
+      if (this.isConnected) {
+        console.log('Demo Mode: Heartbeat - Connection active');
       }
-    }
+    }, 30000); // Every 30 seconds
 
-    // Return original error with additional context
-    return `Authentication failed: ${errorMsg || 'Unknown error'}. Please verify your credentials with your broker and ensure your account is active.`;
+    // Send initial data
+    setTimeout(() => {
+      if (this.accountData) {
+        this.emit('account_info', this.accountData);
+      }
+      this.emit('position_update', this.positions);
+    }, 1000);
   }
 
-  private handleWebSocketMessage(data: string): void {
-    try {
-      const message = JSON.parse(data);
-      this.emit('message', message);
+  private updateSimulatedPrices(): void {
+    Object.keys(this.symbols).forEach(symbolName => {
+      const symbol = this.symbols[symbolName];
       
-      switch (message.type) {
-        case 'tick':
-          this.emit('tick', message.data);
-          break;
-        case 'account_info':
-          this.emit('account_info', message.data);
-          break;
-        case 'position_update':
-          this.emit('position_update', message.data);
-          break;
-        case 'trade_result':
-          this.emit('trade_result', message.data);
-          break;
-        case 'error':
-          this.emit('error', message.data);
-          break;
-      }
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-    }
+      // Simulate realistic price movement (small random changes)
+      const change = (Math.random() - 0.5) * 0.0005; // Max 5 pips movement
+      const newBid = Math.max(0.0001, symbol.bid + change);
+      const newAsk = newBid + symbol.spread;
+
+      this.symbols[symbolName] = {
+        ...symbol,
+        bid: Number(newBid.toFixed(5)),
+        ask: Number(newAsk.toFixed(5)),
+        lastUpdate: new Date(),
+      };
+
+      // Emit tick data
+      this.emit('tick', this.symbols[symbolName]);
+    });
   }
 
-  private handleDisconnection(): void {
-    this.isConnected = false;
-    this.emit('disconnected');
+  private updateSimulatedPositions(): void {
+    this.positions = this.positions.map(position => {
+      const symbol = this.symbols[position.symbol];
+      if (!symbol) return position;
+
+      // Update current price based on position type
+      const currentPrice = position.type === 'BUY' ? symbol.bid : symbol.ask;
+      
+      // Calculate profit
+      const priceDifference = position.type === 'BUY' 
+        ? currentPrice - position.openPrice 
+        : position.openPrice - currentPrice;
+      
+      const profit = priceDifference * position.volume * 100000; // Standard lot size
+
+      return {
+        ...position,
+        currentPrice: Number(currentPrice.toFixed(5)),
+        profit: Number(profit.toFixed(2)),
+      };
+    });
+
+    this.emit('position_update', this.positions);
+  }
+
+  private updateSimulatedAccount(): void {
+    if (!this.accountData) return;
+
+    // Calculate total profit from positions
+    const totalProfit = this.positions.reduce((sum, position) => sum + position.profit, 0);
     
-    // Auto-reconnect if credentials are available
-    if (this.credentials) {
-      this.reconnectInterval = setTimeout(() => {
-        console.log('Attempting to reconnect to MT5...');
-        this.connect(this.credentials!).catch(console.error);
-      }, 5000);
-    }
+    // Update equity
+    const newEquity = this.accountData.balance + totalProfit;
+    
+    this.accountData = {
+      ...this.accountData,
+      equity: Number(newEquity.toFixed(2)),
+      freeMargin: Number((newEquity - this.accountData.margin).toFixed(2)),
+      marginLevel: this.accountData.margin > 0 ? Number(((newEquity / this.accountData.margin) * 100).toFixed(2)) : 0,
+    };
+
+    this.emit('account_info', this.accountData);
   }
 
-  private startHeartbeat(): void {
-    const heartbeatInterval = setInterval(() => {
-      if (this.isConnected && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-        this.websocket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-      } else {
-        clearInterval(heartbeatInterval);
-      }
-    }, 30000); // Send heartbeat every 30 seconds
+  disconnect(): void {
+    console.log('Demo Mode: Disconnecting from MT5 simulation');
+    this.isConnected = false;
+    
+    if (this.simulationInterval) {
+      clearInterval(this.simulationInterval);
+      this.simulationInterval = null;
+    }
+    
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    
+    this.accountData = null;
+    this.positions = [];
+    this.symbols = {};
+    
+    this.emit('disconnected');
   }
 
   async getAccountInfo(): Promise<MT5AccountInfo> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+    if (!this.isConnected || !this.accountData) {
+      throw new Error('Not connected to MT5 demo server');
     }
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Request timeout'));
-      }, 5000);
-
-      this.once('account_info', (data: MT5AccountInfo) => {
-        clearTimeout(timeout);
-        resolve(data);
-      });
-
-      this.sendRequest({ type: 'get_account_info' });
-    });
+    return Promise.resolve(this.accountData);
   }
 
   async getPositions(): Promise<MT5Position[]> {
     if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+      throw new Error('Not connected to MT5 demo server');
     }
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Request timeout'));
-      }, 5000);
-
-      this.once('positions', (data: MT5Position[]) => {
-        clearTimeout(timeout);
-        resolve(data);
-      });
-
-      this.sendRequest({ type: 'get_positions' });
-    });
+    return Promise.resolve([...this.positions]);
   }
 
   async getSymbolInfo(symbol: string): Promise<MT5Symbol> {
     if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+      throw new Error('Not connected to MT5 demo server');
     }
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Request timeout'));
-      }, 5000);
+    const symbolData = this.symbols[symbol];
+    if (!symbolData) {
+      throw new Error(`Symbol ${symbol} not found`);
+    }
 
-      this.once('symbol_info', (data: MT5Symbol) => {
-        clearTimeout(timeout);
-        resolve(data);
-      });
-
-      this.sendRequest({ type: 'get_symbol_info', symbol });
-    });
+    return Promise.resolve(symbolData);
   }
 
   async executeTrade(request: MT5TradeRequest): Promise<MT5TradeResult> {
     if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+      throw new Error('Not connected to MT5 demo server');
     }
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Trade execution timeout'));
-      }, 10000);
+    console.log('Demo Mode: Executing trade:', request);
 
-      this.once('trade_result', (data: MT5TradeResult) => {
-        clearTimeout(timeout);
-        
-        if (data.retcode === 10009) { // TRADE_RETCODE_DONE
-          resolve(data);
-        } else {
-          reject(new Error(`Trade failed with code: ${data.retcode}, ${data.comment || ''}`));
-        }
-      });
+    // Simulate trade execution delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      this.sendRequest({
-        type: 'trade',
-        request: {
-          ...request,
-          magic: request.magic || 12345, // Default magic number
-          deviation: 10, // Default deviation in points
-          type_filling: 'FOK', // Fill or Kill
-          type_time: 'GTC' // Good Till Cancelled
-        }
-      });
-    });
+    // Get current symbol price
+    const symbol = this.symbols[request.symbol];
+    if (!symbol) {
+      throw new Error(`Symbol ${request.symbol} not available`);
+    }
+
+    // Determine execution price
+    const executionPrice = request.type === 'BUY' ? symbol.ask : symbol.bid;
+
+    // Create new position
+    const newPosition: MT5Position = {
+      ticket: Date.now(),
+      symbol: request.symbol,
+      type: request.type,
+      volume: request.volume,
+      openPrice: executionPrice,
+      currentPrice: executionPrice,
+      profit: 0,
+      swap: 0,
+      commission: -Math.abs(request.volume * 0.7), // Simulate commission
+      comment: request.comment || 'Demo trade',
+      openTime: new Date(),
+    };
+
+    this.positions.push(newPosition);
+
+    // Update account balance (subtract commission)
+    if (this.accountData) {
+      this.accountData.balance += newPosition.commission;
+    }
+
+    // Emit updates
+    this.emit('position_update', this.positions);
+    if (this.accountData) {
+      this.emit('account_info', this.accountData);
+    }
+
+    return {
+      retcode: 10009, // TRADE_RETCODE_DONE
+      deal: newPosition.ticket,
+      volume: request.volume,
+      price: executionPrice,
+      bid: symbol.bid,
+      ask: symbol.ask,
+      comment: 'Demo trade executed successfully',
+      request_id: Date.now(),
+    };
   }
 
   async subscribeToSymbol(symbol: string): Promise<void> {
     if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+      throw new Error('Not connected to MT5 demo server');
     }
 
-    this.sendRequest({
-      type: 'subscribe',
-      symbol,
-      subscription_type: 'ticks'
-    });
+    console.log(`Demo Mode: Subscribed to ${symbol} price updates`);
+    
+    // In demo mode, all major symbols are already available
+    if (!this.symbols[symbol]) {
+      // Add the symbol if not exists
+      this.symbols[symbol] = {
+        name: symbol,
+        bid: 1.0000,
+        ask: 1.0002,
+        spread: 0.0002,
+        digits: 5,
+        point: 0.00001,
+        lastUpdate: new Date(),
+      };
+    }
   }
 
   async unsubscribeFromSymbol(symbol: string): Promise<void> {
     if (!this.isConnected) {
-      throw new Error('Not connected to MT5');
+      throw new Error('Not connected to MT5 demo server');
     }
 
-    this.sendRequest({
-      type: 'unsubscribe',
-      symbol
-    });
-  }
-
-  private sendRequest(request: any): void {
-    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify({
-        ...request,
-        id: Date.now() + Math.random(),
-        timestamp: Date.now()
-      }));
-    } else {
-      throw new Error('WebSocket not connected');
-    }
+    console.log(`Demo Mode: Unsubscribed from ${symbol} price updates`);
   }
 
   // Event system
