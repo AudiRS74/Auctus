@@ -267,39 +267,80 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {
+    const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {
+    console.log('Starting MT5 connection process...', { server: config.server, login: config.login });
     setIsConnecting(true);
     setConnectionError(null);
     
     try {
+      // Trim whitespace from inputs to prevent common user errors
       const credentials: MT5Credentials = {
-        server: config.server,
-        login: config.login,
-        password: config.password,
+        server: config.server.trim(),
+        login: config.login.trim(),
+        password: config.password, // Don't trim password as it might contain intentional spaces
       };
+
+      console.log('Attempting connection with credentials:', { 
+        server: credentials.server, 
+        login: credentials.login,
+        // Don't log password for security
+      });
 
       const connected = await mt5Service.connect(credentials);
       
       if (connected) {
+        console.log('MT5 connection successful');
         setMT5Config({ ...config, connected: true });
         
-        // Subscribe to common symbols for real-time data
+        // Subscribe to common symbols for real-time data with error handling
         const commonSymbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
-        for (const symbol of commonSymbols) {
+        const subscriptionPromises = commonSymbols.map(async (symbol) => {
           try {
             await mt5Service.subscribeToSymbol(symbol);
+            console.log(`Successfully subscribed to ${symbol}`);
           } catch (error) {
             console.warn(`Failed to subscribe to ${symbol}:`, error);
+            // Don't fail the entire connection for subscription errors
           }
-        }
+        });
+        
+        // Wait for subscriptions but don't let them block the connection
+        Promise.allSettled(subscriptionPromises).then(() => {
+          console.log('Symbol subscription process completed');
+        });
+        
       } else {
-        throw new Error('Connection failed');
+        throw new Error('Connection failed - unknown error');
       }
     } catch (error) {
-      console.error('MT5 connection error:', error);
+      console.error('MT5 connection failed:', error);
       setIsConnecting(false);
-      setConnectionError(error instanceof Error ? error.message : 'Connection failed');
-      throw error;
+      
+      // Provide user-friendly error messages
+      let userFriendlyError = 'Connection failed';
+      
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('timeout')) {
+          userFriendlyError = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (errorMsg.includes('server') && errorMsg.includes('not found')) {
+          userFriendlyError = `Server "${config.server}" not found. Please verify the server name with your broker.`;
+        } else if (errorMsg.includes('invalid login') || errorMsg.includes('wrong login')) {
+          userFriendlyError = 'Invalid account number. Please check your MT5 account number.';
+        } else if (errorMsg.includes('invalid password') || errorMsg.includes('wrong password')) {
+          userFriendlyError = 'Incorrect password. Please check your MT5 account password.';
+        } else if (errorMsg.includes('blocked') || errorMsg.includes('suspended')) {
+          userFriendlyError = 'Account blocked or suspended. Please contact your broker.';
+        } else if (errorMsg.includes('validation')) {
+          userFriendlyError = error.message; // Use the detailed validation message
+        } else {
+          userFriendlyError = error.message;
+        }
+      }
+      
+      setConnectionError(userFriendlyError);
+      throw new Error(userFriendlyError);
     }
   };
 
