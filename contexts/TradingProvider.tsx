@@ -75,6 +75,7 @@ interface RealTimeData {
   accountInfo: MT5AccountInfo | BrokerAccount | null;
   positions: MT5Position[] | BrokerPosition[];
   quotes: { [key: string]: Quote };
+  symbols: { [key: string]: any };
   lastUpdate: Date | null;
   dataProvider: string | null;
 }
@@ -144,10 +145,11 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     totalSignals: 0,
     lastUpdate: null,
   });
-  const [realTimeData, setRealTimeData] = useState<RealTimeData>({
+    const [realTimeData, setRealTimeData] = useState<RealTimeData>({
     accountInfo: null,
     positions: [],
     quotes: {},
+    symbols: {},
     lastUpdate: null,
     dataProvider: null,
   });

@@ -9,11 +9,12 @@ export interface MT5AccountInfo {
   equity: number;
   margin: number;
   freeMargin: number;
-  marginLevel: number;
-  currency: string;
   leverage: number;
-  name: string;
+  currency: string;
   company: string;
+  name: string;
+  server: string;
+  login: string;
 }
 
 export interface MT5Position {
@@ -26,7 +27,6 @@ export interface MT5Position {
   profit: number;
   swap: number;
   commission: number;
-  comment: string;
   openTime: Date;
 }
 
@@ -34,22 +34,18 @@ export interface MT5Symbol {
   name: string;
   bid: number;
   ask: number;
-  spread: number;
-  digits: number;
-  point: number;
+  last: number;
+  volume: number;
+  time: Date;
   lastUpdate: Date;
 }
 
 export interface MT5TradeRequest {
-  action: 'DEAL' | 'PENDING';
+  action: 'DEAL';
   symbol: string;
   volume: number;
-  type: 'BUY' | 'SELL' | 'BUY_LIMIT' | 'SELL_LIMIT' | 'BUY_STOP' | 'SELL_STOP';
-  price?: number;
-  stoploss?: number;
-  takeprofit?: number;
+  type: 'BUY' | 'SELL';
   comment?: string;
-  magic?: number;
 }
 
 export interface MT5TradeResult {
@@ -58,446 +54,255 @@ export interface MT5TradeResult {
   order?: number;
   volume?: number;
   price?: number;
-  bid?: number;
-  ask?: number;
   comment?: string;
   request_id?: number;
 }
 
 class MT5Service {
-  private isConnected: boolean = false;
+  private connected = false;
   private credentials: MT5Credentials | null = null;
   private eventHandlers: { [key: string]: Function[] } = {};
-  private simulationInterval: NodeJS.Timeout | null = null;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
-  private accountData: MT5AccountInfo | null = null;
+  private symbols: Map<string, MT5Symbol> = new Map();
   private positions: MT5Position[] = [];
-  private symbols: { [key: string]: MT5Symbol } = {};
+  private accountInfo: MT5AccountInfo | null = null;
+  private updateInterval: NodeJS.Timeout | null = null;
 
   async connect(credentials: MT5Credentials): Promise<boolean> {
-    console.log('MT5 Demo Mode: Simulating connection to broker server:', credentials.server);
+    console.log('MT5Service: Attempting connection...');
     
     try {
-      this.credentials = credentials;
-      
-      // Validate credentials format
-      const validationError = this.validateCredentials(credentials);
-      if (validationError) {
-        console.error('Credential validation failed:', validationError);
-        throw new Error(validationError);
+      // Validate credentials
+      if (!credentials.server || !credentials.login || !credentials.password) {
+        throw new Error('Invalid credentials: All fields are required');
       }
-      
-      // Simulate connection delay
+
+      if (credentials.server.trim().length === 0) {
+        throw new Error('Server name cannot be empty');
+      }
+
+      if (credentials.login.trim().length === 0) {
+        throw new Error('Login cannot be empty');
+      }
+
+      // Simulate connection process
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate authentication based on credentials
-      const authResult = this.simulateAuthentication(credentials);
-      
-      if (authResult.success) {
-        console.log('Demo Mode: Authentication successful');
-        this.isConnected = true;
-        this.initializeSimulatedData();
-        this.startSimulation();
-        this.emit('connected', { credentials });
-        return true;
-      } else {
-        console.error('Demo Mode: Authentication failed:', authResult.error);
-        throw new Error(authResult.error || 'Authentication failed');
-      }
-    } catch (error) {
-      console.error('MT5 Demo Connection Error:', error);
-      this.isConnected = false;
-      
-      this.emit('error', {
-        type: 'connection_error',
-        message: error instanceof Error ? error.message : 'Unknown connection error',
+
+      this.credentials = credentials;
+      this.connected = true;
+
+      // Initialize demo account data
+      this.accountInfo = {
+        balance: 10000.00,
+        equity: 10000.00,
+        margin: 0.00,
+        freeMargin: 10000.00,
+        leverage: 100,
+        currency: 'USD',
+        company: 'Demo MetaTrader 5',
+        name: 'Demo Account',
         server: credentials.server,
-        timestamp: new Date()
-      });
+        login: credentials.login,
+      };
+
+      this.startDataUpdates();
+      this.emit('connected');
       
+      console.log('MT5Service: Connected successfully');
+      return true;
+    } catch (error) {
+      console.error('MT5Service: Connection failed:', error);
+      this.connected = false;
+      this.emit('error', error);
       throw error;
     }
   }
 
-  private validateCredentials(credentials: MT5Credentials): string | null {
-    // Validate server format
-    if (!credentials.server || credentials.server.trim().length === 0) {
-      return 'Server name is required. Please enter your broker server name (e.g., YourBroker-Demo, YourBroker-Live01)';
-    }
-
-    // Validate login format (should be numeric for most brokers)
-    if (!credentials.login || credentials.login.trim().length === 0) {
-      return 'Login number is required. Please enter your MT5 account number';
-    }
-
-    // Check if login is numeric (most brokers use numeric account IDs)
-    const loginNum = credentials.login.trim();
-    if (!/^\d+$/.test(loginNum)) {
-      return 'Invalid login format. MT5 account numbers are typically numeric (e.g., 12345678)';
-    }
-
-    // Validate login length (typically 6-10 digits for most brokers)
-    if (loginNum.length < 4 || loginNum.length > 12) {
-      return 'Invalid login length. MT5 account numbers are typically 4-12 digits long';
-    }
-
-    // Validate password
-    if (!credentials.password || credentials.password.length === 0) {
-      return 'Password is required. Please enter your MT5 account password';
-    }
-
-    // Check password length (most brokers require minimum 6 characters)
-    if (credentials.password.length < 4) {
-      return 'Password too short. Most brokers require passwords to be at least 4 characters long';
-    }
-
-    return null; // No validation errors
-  }
-
-  private simulateAuthentication(credentials: MT5Credentials): { success: boolean; error?: string } {
-    // Demo mode authentication logic
-    const serverLower = credentials.server.toLowerCase();
-    const login = credentials.login;
-    const password = credentials.password;
-
-    // Demo credentials that always work for testing
-    const demoCredentials = [
-      { server: 'demo', login: '12345', password: 'demo123' },
-      { server: 'metaquotes-demo', login: '123456', password: 'password' },
-      { server: 'test', login: '1234567', password: 'test123' },
-    ];
-
-    // Check if using demo credentials
-    const isDemoCredentials = demoCredentials.some(demo => 
-      serverLower.includes(demo.server.toLowerCase()) && 
-      login === demo.login && 
-      password === demo.password
-    );
-
-    if (isDemoCredentials) {
-      return { success: true };
-    }
-
-    // Simulate realistic validation errors for demo purposes
-    if (login.length < 5) {
-      return { success: false, error: 'Invalid account number. Account numbers must be at least 5 digits long.' };
-    }
-
-    if (password.length < 6) {
-      return { success: false, error: 'Invalid password. Password must be at least 6 characters long.' };
-    }
-
-    // For demo purposes, accept any reasonable looking credentials
-    if (serverLower.includes('demo') || serverLower.includes('test')) {
-      return { success: true };
-    }
-
-    // Show helpful message for live server attempts
-    return { 
-      success: false, 
-      error: `Demo Mode: Cannot connect to live server "${credentials.server}". This is a demonstration version. Use server "demo" with login "12345" and password "demo123" to test the application.` 
-    };
-  }
-
-  private initializeSimulatedData(): void {
-    // Initialize demo account data
-    this.accountData = {
-      balance: 10000.00,
-      equity: 10000.00,
-      margin: 0.00,
-      freeMargin: 10000.00,
-      marginLevel: 0,
-      currency: 'USD',
-      leverage: 100,
-      name: 'Demo Trader',
-      company: 'Demo Broker Ltd.',
-    };
-
-    // Initialize common forex symbols with realistic prices
-    const symbolData = [
-      { name: 'EURUSD', basePrice: 1.0845 },
-      { name: 'GBPUSD', basePrice: 1.2634 },
-      { name: 'USDJPY', basePrice: 148.75 },
-      { name: 'AUDUSD', basePrice: 0.6823 },
-      { name: 'USDCAD', basePrice: 1.3456 },
-      { name: 'USDCHF', basePrice: 0.8934 },
-      { name: 'NZDUSD', basePrice: 0.6245 },
-      { name: 'EURGBP', basePrice: 0.8587 },
-    ];
-
-    symbolData.forEach(symbol => {
-      const spread = 0.0002; // 2 pips spread
-      const bid = symbol.basePrice - spread / 2;
-      const ask = symbol.basePrice + spread / 2;
-
-      this.symbols[symbol.name] = {
-        name: symbol.name,
-        bid: Number(bid.toFixed(5)),
-        ask: Number(ask.toFixed(5)),
-        spread: Number((ask - bid).toFixed(5)),
-        digits: 5,
-        point: 0.00001,
-        lastUpdate: new Date(),
-      };
-    });
-
-    // Initialize some demo positions
-    this.positions = [
-      {
-        ticket: 12345,
-        symbol: 'EURUSD',
-        type: 'BUY',
-        volume: 0.1,
-        openPrice: 1.0832,
-        currentPrice: 1.0845,
-        profit: 13.00,
-        swap: 0.00,
-        commission: -1.00,
-        comment: 'Demo trade',
-        openTime: new Date(Date.now() - 3600000), // 1 hour ago
-      },
-      {
-        ticket: 12346,
-        symbol: 'GBPUSD',
-        type: 'SELL',
-        volume: 0.05,
-        openPrice: 1.2642,
-        currentPrice: 1.2634,
-        profit: 4.00,
-        swap: 0.00,
-        commission: -0.50,
-        comment: 'Demo trade',
-        openTime: new Date(Date.now() - 7200000), // 2 hours ago
-      },
-    ];
-
-    console.log('Demo data initialized:', { account: this.accountData, symbolCount: Object.keys(this.symbols).length });
-  }
-
-  private startSimulation(): void {
-    // Start price simulation
-    this.simulationInterval = setInterval(() => {
-      this.updateSimulatedPrices();
-      this.updateSimulatedPositions();
-      this.updateSimulatedAccount();
-    }, 2000); // Update every 2 seconds
-
-    // Start heartbeat
-    this.heartbeatInterval = setInterval(() => {
-      if (this.isConnected) {
-        console.log('Demo Mode: Heartbeat - Connection active');
-      }
-    }, 30000); // Every 30 seconds
-
-    // Send initial data
-    setTimeout(() => {
-      if (this.accountData) {
-        this.emit('account_info', this.accountData);
-      }
-      this.emit('position_update', this.positions);
-    }, 1000);
-  }
-
-  private updateSimulatedPrices(): void {
-    Object.keys(this.symbols).forEach(symbolName => {
-      const symbol = this.symbols[symbolName];
-      
-      // Simulate realistic price movement (small random changes)
-      const change = (Math.random() - 0.5) * 0.0005; // Max 5 pips movement
-      const newBid = Math.max(0.0001, symbol.bid + change);
-      const newAsk = newBid + symbol.spread;
-
-      this.symbols[symbolName] = {
-        ...symbol,
-        bid: Number(newBid.toFixed(5)),
-        ask: Number(newAsk.toFixed(5)),
-        lastUpdate: new Date(),
-      };
-
-      // Emit tick data
-      this.emit('tick', this.symbols[symbolName]);
-    });
-  }
-
-  private updateSimulatedPositions(): void {
-    this.positions = this.positions.map(position => {
-      const symbol = this.symbols[position.symbol];
-      if (!symbol) return position;
-
-      // Update current price based on position type
-      const currentPrice = position.type === 'BUY' ? symbol.bid : symbol.ask;
-      
-      // Calculate profit
-      const priceDifference = position.type === 'BUY' 
-        ? currentPrice - position.openPrice 
-        : position.openPrice - currentPrice;
-      
-      const profit = priceDifference * position.volume * 100000; // Standard lot size
-
-      return {
-        ...position,
-        currentPrice: Number(currentPrice.toFixed(5)),
-        profit: Number(profit.toFixed(2)),
-      };
-    });
-
-    this.emit('position_update', this.positions);
-  }
-
-  private updateSimulatedAccount(): void {
-    if (!this.accountData) return;
-
-    // Calculate total profit from positions
-    const totalProfit = this.positions.reduce((sum, position) => sum + position.profit, 0);
-    
-    // Update equity
-    const newEquity = this.accountData.balance + totalProfit;
-    
-    this.accountData = {
-      ...this.accountData,
-      equity: Number(newEquity.toFixed(2)),
-      freeMargin: Number((newEquity - this.accountData.margin).toFixed(2)),
-      marginLevel: this.accountData.margin > 0 ? Number(((newEquity / this.accountData.margin) * 100).toFixed(2)) : 0,
-    };
-
-    this.emit('account_info', this.accountData);
-  }
-
   disconnect(): void {
-    console.log('Demo Mode: Disconnecting from MT5 simulation');
-    this.isConnected = false;
+    console.log('MT5Service: Disconnecting...');
     
-    if (this.simulationInterval) {
-      clearInterval(this.simulationInterval);
-      this.simulationInterval = null;
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
     }
-    
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-    
-    this.accountData = null;
+
+    this.connected = false;
+    this.credentials = null;
+    this.accountInfo = null;
     this.positions = [];
-    this.symbols = {};
+    this.symbols.clear();
     
     this.emit('disconnected');
+    console.log('MT5Service: Disconnected');
   }
 
   async getAccountInfo(): Promise<MT5AccountInfo> {
-    if (!this.isConnected || !this.accountData) {
-      throw new Error('Not connected to MT5 demo server');
+    if (!this.connected || !this.accountInfo) {
+      throw new Error('MT5 not connected');
     }
-    return Promise.resolve(this.accountData);
+    return { ...this.accountInfo };
   }
 
   async getPositions(): Promise<MT5Position[]> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5 demo server');
+    if (!this.connected) {
+      throw new Error('MT5 not connected');
     }
-    return Promise.resolve([...this.positions]);
+    return [...this.positions];
   }
 
-  async getSymbolInfo(symbol: string): Promise<MT5Symbol> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5 demo server');
+  async subscribeToSymbol(symbol: string): Promise<void> {
+    if (!this.connected) {
+      throw new Error('MT5 not connected');
     }
 
-    const symbolData = this.symbols[symbol];
-    if (!symbolData) {
-      throw new Error(`Symbol ${symbol} not found`);
-    }
+    console.log(`MT5Service: Subscribing to ${symbol}`);
+    
+    // Initialize symbol data
+    const symbolData: MT5Symbol = {
+      name: symbol,
+      bid: this.generateRandomPrice(symbol),
+      ask: this.generateRandomPrice(symbol) + 0.0001,
+      last: this.generateRandomPrice(symbol),
+      volume: Math.floor(Math.random() * 1000000),
+      time: new Date(),
+      lastUpdate: new Date(),
+    };
 
-    return Promise.resolve(symbolData);
+    symbolData.ask = symbolData.bid + 0.0001; // Ensure ask > bid
+    this.symbols.set(symbol, symbolData);
   }
 
   async executeTrade(request: MT5TradeRequest): Promise<MT5TradeResult> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5 demo server');
+    if (!this.connected) {
+      throw new Error('MT5 not connected');
     }
 
-    console.log('Demo Mode: Executing trade:', request);
+    console.log('MT5Service: Executing trade:', request);
 
-    // Simulate trade execution delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Simulate trade execution
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Get current symbol price
-    const symbol = this.symbols[request.symbol];
-    if (!symbol) {
-      throw new Error(`Symbol ${request.symbol} not available`);
-    }
+    const symbol = this.symbols.get(request.symbol);
+    const price = symbol ? (request.type === 'BUY' ? symbol.ask : symbol.bid) : this.generateRandomPrice(request.symbol);
+    
+    const result: MT5TradeResult = {
+      retcode: 10009, // TRADE_RETCODE_DONE
+      deal: Date.now(),
+      order: Date.now() + 1,
+      volume: request.volume,
+      price: price,
+      comment: request.comment || 'Demo trade executed',
+      request_id: Date.now(),
+    };
 
-    // Determine execution price
-    const executionPrice = request.type === 'BUY' ? symbol.ask : symbol.bid;
-
-    // Create new position
+    // Add position
     const newPosition: MT5Position = {
-      ticket: Date.now(),
+      ticket: result.deal!,
       symbol: request.symbol,
       type: request.type,
       volume: request.volume,
-      openPrice: executionPrice,
-      currentPrice: executionPrice,
+      openPrice: price,
+      currentPrice: price,
       profit: 0,
       swap: 0,
-      commission: -Math.abs(request.volume * 0.7), // Simulate commission
-      comment: request.comment || 'Demo trade',
+      commission: 0,
       openTime: new Date(),
     };
 
     this.positions.push(newPosition);
-
-    // Update account balance (subtract commission)
-    if (this.accountData) {
-      this.accountData.balance += newPosition.commission;
-    }
-
-    // Emit updates
     this.emit('position_update', this.positions);
-    if (this.accountData) {
-      this.emit('account_info', this.accountData);
-    }
 
-    return {
-      retcode: 10009, // TRADE_RETCODE_DONE
-      deal: newPosition.ticket,
-      volume: request.volume,
-      price: executionPrice,
-      bid: symbol.bid,
-      ask: symbol.ask,
-      comment: 'Demo trade executed successfully',
-      request_id: Date.now(),
-    };
+    console.log('MT5Service: Trade executed successfully:', result);
+    return result;
   }
 
-  async subscribeToSymbol(symbol: string): Promise<void> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5 demo server');
+  private startDataUpdates(): void {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
     }
 
-    console.log(`Demo Mode: Subscribed to ${symbol} price updates`);
-    
-    // In demo mode, all major symbols are already available
-    if (!this.symbols[symbol]) {
-      // Add the symbol if not exists
-      this.symbols[symbol] = {
-        name: symbol,
-        bid: 1.0000,
-        ask: 1.0002,
-        spread: 0.0002,
-        digits: 5,
-        point: 0.00001,
+    this.updateInterval = setInterval(() => {
+      this.updateSymbolPrices();
+      this.updatePositions();
+      this.updateAccountInfo();
+    }, 1000);
+  }
+
+  private updateSymbolPrices(): void {
+    for (const [symbolName, symbol] of this.symbols) {
+      const newBid = this.generateRandomPrice(symbolName, symbol.bid);
+      const newAsk = newBid + 0.0001;
+      
+      const updatedSymbol: MT5Symbol = {
+        ...symbol,
+        bid: newBid,
+        ask: newAsk,
+        last: newBid,
         lastUpdate: new Date(),
       };
+
+      this.symbols.set(symbolName, updatedSymbol);
+      this.emit('tick', updatedSymbol);
     }
   }
 
-  async unsubscribeFromSymbol(symbol: string): Promise<void> {
-    if (!this.isConnected) {
-      throw new Error('Not connected to MT5 demo server');
-    }
+  private updatePositions(): void {
+    this.positions.forEach(position => {
+      const symbol = this.symbols.get(position.symbol);
+      if (symbol) {
+        position.currentPrice = position.type === 'BUY' ? symbol.bid : symbol.ask;
+        position.profit = this.calculateProfit(position);
+      }
+    });
 
-    console.log(`Demo Mode: Unsubscribed from ${symbol} price updates`);
+    if (this.positions.length > 0) {
+      this.emit('position_update', this.positions);
+    }
+  }
+
+  private updateAccountInfo(): void {
+    if (!this.accountInfo) return;
+
+    const totalProfit = this.positions.reduce((sum, pos) => sum + pos.profit, 0);
+    
+    this.accountInfo = {
+      ...this.accountInfo,
+      equity: this.accountInfo.balance + totalProfit,
+    };
+
+    this.emit('account_info', this.accountInfo);
+  }
+
+  private generateRandomPrice(symbol: string, currentPrice?: number): number {
+    const basePrice = currentPrice || this.getBasePrice(symbol);
+    const change = (Math.random() - 0.5) * 0.0010; // Max 10 pip change
+    return Math.max(0.0001, basePrice + change);
+  }
+
+  private getBasePrice(symbol: string): number {
+    const basePrices: { [key: string]: number } = {
+      'EURUSD': 1.0950,
+      'GBPUSD': 1.2650,
+      'USDJPY': 149.50,
+      'AUDUSD': 0.6750,
+      'USDCAD': 1.3450,
+      'USDCHF': 0.8850,
+      'NZDUSD': 0.6150,
+      'EURGBP': 0.8650,
+    };
+    return basePrices[symbol] || 1.0000;
+  }
+
+  private calculateProfit(position: MT5Position): number {
+    const pointValue = 10; // Simplified point value
+    const priceDiff = position.type === 'BUY' 
+      ? position.currentPrice - position.openPrice
+      : position.openPrice - position.currentPrice;
+    
+    return priceDiff * position.volume * pointValue;
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 
   // Event system
@@ -506,14 +311,6 @@ class MT5Service {
       this.eventHandlers[event] = [];
     }
     this.eventHandlers[event].push(handler);
-  }
-
-  once(event: string, handler: Function): void {
-    const wrappedHandler = (...args: any[]) => {
-      handler(...args);
-      this.off(event, wrappedHandler);
-    };
-    this.on(event, wrappedHandler);
   }
 
   off(event: string, handler: Function): void {
@@ -528,18 +325,10 @@ class MT5Service {
         try {
           handler(...args);
         } catch (error) {
-          console.error(`Error in event handler for ${event}:`, error);
+          console.error(`Error in MT5 event handler for ${event}:`, error);
         }
       });
     }
-  }
-
-  isConnectedToMT5(): boolean {
-    return this.isConnected;
-  }
-
-  getCurrentCredentials(): MT5Credentials | null {
-    return this.credentials;
   }
 }
 
