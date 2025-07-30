@@ -1,35 +1,56 @@
 export const Colors = {
-  // Primary colors
-  primary: '#1976D2',
-  primaryDark: '#1565C0',
-  accent: '#FF6B35',
+  // Primary dark theme colors
+  background: '#0A0E1A',
+  surface: '#151B2C',
+  surfaceElevated: '#1E2A3E',
   
-  // Trading colors
-  bullish: '#4CAF50',
-  bearish: '#F44336',
-  
-  // Background colors
-  background: '#F5F5F5',
-  surface: '#FFFFFF',
+  // Primary brand colors
+  primary: '#00D2FF',
+  primaryVariant: '#0099CC',
+  secondary: '#00FF88',
+  accent: '#FFD700',
   
   // Text colors
-  textPrimary: '#212121',
-  textSecondary: '#757575',
-  textMuted: '#9E9E9E',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B8C5D6',
+  textMuted: '#6B7C8E',
   
-  // Border colors
-  border: '#E0E0E0',
+  // Trading colors
+  bullish: '#00FF88',
+  bearish: '#FF4757',
+  warning: '#FFD700',
+  neutral: '#6B7C8E',
   
   // Status colors
-  success: '#4CAF50',
-  warning: '#FF9800',
-  error: '#F44336',
-  info: '#2196F3',
+  success: '#00FF88',
+  error: '#FF4757',
+  info: '#00D2FF',
+  
+  // Border and divider colors
+  border: '#2A3441',
+  divider: '#1E2A3E',
+  
+  // Card and component backgrounds
+  cardBackground: '#151B2C',
+  cardElevated: '#1E2A3E',
+  
+  // Transparent overlays
+  overlay: 'rgba(10, 14, 26, 0.9)',
+  overlayLight: 'rgba(10, 14, 26, 0.7)',
+  
+  // Gradient colors
+  gradientStart: '#0A0E1A',
+  gradientEnd: '#151B2C',
+  
+  // Input and form colors
+  inputBackground: '#1E2A3E',
+  inputBorder: '#2A3441',
+  inputFocused: '#00D2FF',
 };
 
 export const Gradients = {
-  header: [Colors.primary, Colors.primaryDark],
-  card: [Colors.surface, Colors.background],
-  bullish: [Colors.bullish + '20', Colors.surface],
-  bearish: [Colors.bearish + '20', Colors.surface],
+  primary: ['#00D2FF', '#0099CC'],
+  secondary: ['#00FF88', '#00CC6A'],
+  surface: ['#151B2C', '#1E2A3E'],
+  header: ['#0A0E1A', '#151B2C'],
 };

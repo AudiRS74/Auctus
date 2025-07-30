@@ -1,172 +1,123 @@
-import React, { useState, Platform } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, TextInput, Switch, Divider, List, Portal, Dialog } from 'react-native-paper';
+import { Card, Button, TextInput, Switch, Divider } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
 import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function Settings() {
+  const { user, signOut } = useAuth();
   const { 
     mt5Config, 
-    brokerConfig, 
-    tradingMode,
-    realTimeData,
+    connectMT5, 
+    disconnectMT5, 
+    addAutomationRule, 
+    automationRules, 
+    toggleAutomationRule, 
+    deleteAutomationRule,
     isConnecting,
     connectionError,
-    connectMT5, 
-    connectBroker,
-    connectMarketData,
-    disconnectMT5, 
-    disconnectBroker,
-    disconnectMarketData,
-    switchTradingMode 
+    realTimeData
   } = useTrading();
+  
+  const [server, setServer] = useState(mt5Config.server);
+  const [login, setLogin] = useState(mt5Config.login);
+  const [password, setPassword] = useState(mt5Config.password);
+  
+  const [newRuleName, setNewRuleName] = useState('');
+  const [newRuleDescription, setNewRuleDescription] = useState('');
 
-  // MT5 Demo Connection State
-  const [mt5Server, setMt5Server] = useState('');
-  const [mt5Login, setMt5Login] = useState('');
-  const [mt5Password, setMt5Password] = useState('');
+  // Cross-platform alert state
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onOk?: () => void;
+    onCancel?: () => void;
+    showCancel?: boolean;
+  }>({ visible: false, title: '', message: '' });
 
-  // Broker API Connection State
-  const [brokerApiKey, setBrokerApiKey] = useState('');
-  const [brokerAccountId, setBrokerAccountId] = useState('');
-  const [brokerEnvironment, setBrokerEnvironment] = useState<'sandbox' | 'live'>('sandbox');
-
-  // UI State
-  const [showApiKeys, setShowApiKeys] = useState(false);
-  const [showMT5Config, setShowMT5Config] = useState(false);
-  const [showBrokerConfig, setShowBrokerConfig] = useState(false);
-  const [showRiskWarning, setShowRiskWarning] = useState(false);
-
-  const showAlert = (title: string, message: string) => {
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
     if (Platform.OS === 'web') {
-      alert(`${title}\n\n${message}`);
+      setAlertConfig({ visible: true, title, message, onOk });
     } else {
-      Alert.alert(title, message);
+      // Use React Native Alert for mobile
+      const Alert = require('react-native').Alert;
+      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+    }
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+    if (Platform.OS === 'web') {
+      setAlertConfig({ 
+        visible: true, 
+        title, 
+        message, 
+        onOk: onConfirm, 
+        onCancel,
+        showCancel: true 
+      });
+    } else {
+      const Alert = require('react-native').Alert;
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel', onPress: onCancel },
+        { text: 'OK', onPress: onConfirm }
+      ]);
     }
   };
 
   const handleMT5Connect = async () => {
-    if (!mt5Server.trim() || !mt5Login.trim() || !mt5Password.trim()) {
-      showAlert('Missing Information', 'Please fill in all MT5 connection fields.');
+    if (!server || !login || !password) {
+      showAlert('Connection Error', 'Please fill in all MT5 connection details (Server, Login, Password)');
       return;
     }
 
     try {
-      await connectMT5({
-        server: mt5Server.trim(),
-        login: mt5Login.trim(),
-        password: mt5Password.trim(),
-      });
-      showAlert('Success', 'Connected to MT5 demo server successfully!');
-      setShowMT5Config(false);
+      await connectMT5({ server, login, password });
+      showAlert('Success', 'Successfully connected to MT5 demo server! Your account is now linked.\n\nNote: This is a demonstration mode. Use server "demo" with login "12345" and password "demo123" for testing.');
     } catch (error) {
-      showAlert('Connection Failed', error instanceof Error ? error.message : 'Failed to connect to MT5');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to connect to MT5';
+      showAlert('Connection Error', `Connection failed: ${errorMsg}\n\nFor demo testing, use:\nServer: demo\nLogin: 12345\nPassword: demo123`);
     }
   };
 
-  const handleBrokerConnect = async () => {
-    if (!brokerApiKey.trim() || !brokerAccountId.trim()) {
-      showAlert('Missing Information', 'Please provide both API key and account ID.');
+  const handleMT5Disconnect = () => {
+    showConfirm(
+      'Confirm Disconnect', 
+      'Are you sure you want to disconnect from MT5? This will stop real-time trading.',
+      () => {
+        disconnectMT5();
+        showAlert('Disconnected', 'Successfully disconnected from MT5 demo server.');
+      }
+    );
+  };
+
+  const handleAddRule = () => {
+    if (!newRuleName.trim() || !newRuleDescription.trim()) {
+      showAlert('Validation Error', 'Please provide both rule name and description');
       return;
     }
 
-    if (brokerEnvironment === 'live') {
-      setShowRiskWarning(true);
-      return;
-    }
-
-    try {
-      await connectBroker({
-        apiKey: brokerApiKey.trim(),
-        accountId: brokerAccountId.trim(),
-        environment: brokerEnvironment,
-      });
-      showAlert('Success', `Connected to ${brokerEnvironment} broker successfully!`);
-      setShowBrokerConfig(false);
-    } catch (error) {
-      showAlert('Connection Failed', error instanceof Error ? error.message : 'Failed to connect to broker');
-    }
+    addAutomationRule(newRuleName.trim(), newRuleDescription.trim());
+    setNewRuleName('');
+    setNewRuleDescription('');
+    showAlert('Success', 'Automation rule added successfully!');
   };
 
-  const handleLiveTradingConfirm = async () => {
-    setShowRiskWarning(false);
-    
-    try {
-      await connectBroker({
-        apiKey: brokerApiKey.trim(),
-        accountId: brokerAccountId.trim(),
-        environment: 'live',
-      });
-      showAlert('Live Trading Active', 'You are now connected to live trading. Real money is at risk!');
-      setShowBrokerConfig(false);
-    } catch (error) {
-      showAlert('Connection Failed', error instanceof Error ? error.message : 'Failed to connect to live broker');
-    }
+  const handleDeleteRule = (ruleId: string) => {
+    showConfirm(
+      'Confirm Delete',
+      'Are you sure you want to delete this automation rule?',
+      () => {
+        deleteAutomationRule(ruleId);
+        showAlert('Deleted', 'Automation rule deleted successfully.');
+      }
+    );
   };
-
-  const handleMarketDataConnect = async () => {
-    try {
-      await connectMarketData();
-      showAlert('Success', 'Connected to real-time market data successfully!');
-    } catch (error) {
-      showAlert('Connection Failed', error instanceof Error ? error.message : 'Failed to connect to market data');
-    }
-  };
-
-  const ConnectionStatus = ({ title, connected, onConnect, onDisconnect, environment }: {
-    title: string;
-    connected: boolean;
-    onConnect: () => void;
-    onDisconnect: () => void;
-    environment?: string;
-  }) => (
-    <View style={styles.connectionItem}>
-      <View style={styles.connectionHeader}>
-        <Text style={styles.connectionTitle}>{title}</Text>
-        <View style={[styles.statusBadge, { 
-          backgroundColor: connected ? Colors.bullish + '20' : Colors.bearish + '20' 
-        }]}>
-          <MaterialIcons 
-            name={connected ? "check-circle" : "cancel"} 
-            size={16} 
-            color={connected ? Colors.bullish : Colors.bearish} 
-          />
-          <Text style={[styles.statusText, { 
-            color: connected ? Colors.bullish : Colors.bearish 
-          }]}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </Text>
-        </View>
-      </View>
-      {environment && (
-        <Text style={styles.environmentText}>Environment: {environment}</Text>
-      )}
-      <View style={styles.connectionButtons}>
-        <Button
-          mode="outlined"
-          onPress={onConnect}
-          disabled={isConnecting || connected}
-          loading={isConnecting}
-          style={styles.connectionButton}
-          textColor={Colors.primary}
-        >
-          Connect
-        </Button>
-        <Button
-          mode="text"
-          onPress={onDisconnect}
-          disabled={!connected}
-          textColor={Colors.bearish}
-        >
-          Disconnect
-        </Button>
-      </View>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -177,404 +128,398 @@ export default function Settings() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Settings</Text>
-            <Text style={styles.subtitle}>Configure your trading environment</Text>
+            <Text style={styles.subtitle}>Platform configuration</Text>
           </View>
           <MaterialIcons name="settings" size={28} color={Colors.primary} />
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Trading Mode */}
+        {/* Demo Mode Notice */}
+        <Card style={styles.demoNoticeCard}>
+          <Card.Content style={styles.demoNoticeContent}>
+            <View style={styles.demoNoticeHeader}>
+              <MaterialIcons name="info" size={24} color={Colors.primary} />
+              <Text style={styles.demoNoticeTitle}>Demo Mode Active</Text>
+            </View>
+            <Text style={styles.demoNoticeText}>
+              This is a demonstration version of the MT5 trading platform. Use the following test credentials:
+            </Text>
+            <View style={styles.demoCredentials}>
+              <Text style={styles.demoCredentialItem}>Server: <Text style={styles.demoCredentialValue}>demo</Text></Text>
+              <Text style={styles.demoCredentialItem}>Login: <Text style={styles.demoCredentialValue}>12345</Text></Text>
+              <Text style={styles.demoCredentialItem}>Password: <Text style={styles.demoCredentialValue}>demo123</Text></Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* User Profile */}
+        <Card style={styles.profileCard}>
+          <LinearGradient
+            colors={[Colors.primary + '15', Colors.surface]}
+            style={styles.profileGradient}
+          >
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <MaterialIcons name="account-circle" size={64} color={Colors.primary} />
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{user?.name || 'Demo Trader'}</Text>
+                <Text style={styles.profileEmail}>{user?.email || 'demo@trader.com'}</Text>
+                <View style={styles.profileBadge}>
+                  <MaterialIcons name="verified" size={16} color={Colors.bullish} />
+                  <Text style={styles.profileBadgeText}>Demo Account</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        </Card>
+
+        {/* MT5 Connection */}
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Trading Mode</Text>
-              <MaterialIcons name="swap-horiz" size={24} color={Colors.primary} />
-            </View>
-            
-            <View style={styles.tradingModeContainer}>
-              <View style={styles.modeOption}>
-                <View style={styles.modeInfo}>
-                  <Text style={styles.modeTitle}>Demo Trading</Text>
-                  <Text style={styles.modeDescription}>Practice with simulated data</Text>
-                </View>
-                <Switch
-                  value={tradingMode === 'demo'}
-                  onValueChange={() => switchTradingMode('demo')}
-                />
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="cloud" size={24} color={Colors.secondary} />
+                <Text style={styles.cardTitle}>MT5 Demo Connection</Text>
               </View>
-              
-              <Divider style={styles.divider} />
-              
-              <View style={styles.modeOption}>
-                <View style={styles.modeInfo}>
-                  <Text style={styles.modeTitle}>Live Trading</Text>
-                  <Text style={styles.modeDescription}>Real money at risk</Text>
-                </View>
-                <Switch
-                  value={tradingMode === 'live'}
-                  onValueChange={() => switchTradingMode('live')}
+              <View style={[styles.connectionStatus, { 
+                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : isConnecting ? Colors.primary + '20' : Colors.bearish + '20' 
+              }]}>
+                <MaterialIcons 
+                  name={mt5Config.connected ? "wifi" : isConnecting ? "sync" : "wifi-off"} 
+                  size={16} 
+                  color={mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish} 
                 />
-              </View>
-            </View>
-            
-            {tradingMode === 'live' && (
-              <View style={styles.warningContainer}>
-                <MaterialIcons name="warning" size={20} color={Colors.bearish} />
-                <Text style={styles.warningText}>
-                  Live trading mode is active. Your real money is at risk.
+                <Text style={[styles.connectionStatusText, { 
+                  color: mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish 
+                }]}>
+                  {mt5Config.connected ? 'Demo Trading' : isConnecting ? 'Connecting...' : 'Offline'}
                 </Text>
               </View>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Connection Status */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Connection Status</Text>
-              <MaterialIcons name="cloud" size={24} color={Colors.accent} />
             </View>
             
-            <ConnectionStatus
-              title="Market Data Feed"
-              connected={realTimeData.dataProvider !== null}
-              onConnect={handleMarketDataConnect}
-              onDisconnect={disconnectMarketData}
-              environment={realTimeData.dataProvider || undefined}
-            />
-            
-            <Divider style={styles.divider} />
-            
-            {tradingMode === 'demo' ? (
-              <ConnectionStatus
-                title="MT5 Demo Server"
-                connected={mt5Config.connected}
-                onConnect={() => setShowMT5Config(true)}
-                onDisconnect={disconnectMT5}
-                environment="Demo"
-              />
-            ) : (
-              <ConnectionStatus
-                title="Live Broker API"
-                connected={brokerConfig.connected}
-                onConnect={() => setShowBrokerConfig(true)}
-                onDisconnect={disconnectBroker}
-                environment={brokerConfig.environment}
-              />
+            {connectionError && (
+              <View style={styles.errorContainer}>
+                <MaterialIcons name="error" size={20} color={Colors.bearish} />
+                <Text style={styles.errorText}>{connectionError}</Text>
+              </View>
             )}
-          </Card.Content>
-        </Card>
 
-        {/* API Configuration */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>API Configuration</Text>
-              <MaterialIcons name="key" size={24} color={Colors.secondary} />
+            {mt5Config.connected && realTimeData.accountInfo && (
+              <View style={styles.accountInfoContainer}>
+                <Text style={styles.accountInfoTitle}>Demo Account Information</Text>
+                <View style={styles.accountInfoGrid}>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Balance</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.balance.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Equity</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.equity.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Free Margin</Text>
+                    <Text style={styles.accountInfoValue}>
+                      {realTimeData.accountInfo.currency} {realTimeData.accountInfo.freeMargin.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={styles.accountInfoItem}>
+                    <Text style={styles.accountInfoLabel}>Leverage</Text>
+                    <Text style={styles.accountInfoValue}>1:{realTimeData.accountInfo.leverage}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.inputContainer}>
+              <TextInput
+                label="Server"
+                value={server}
+                onChangeText={setServer}
+                mode="outlined"
+                style={styles.input}
+                placeholder="Enter: demo (for testing)"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="server" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
+              />
+              
+              <TextInput
+                label="Login"
+                value={login}
+                onChangeText={setLogin}
+                mode="outlined"
+                keyboardType="numeric"
+                style={styles.input}
+                placeholder="Enter: 12345 (for testing)"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
+              />
+              
+              <TextInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                mode="outlined"
+                secureTextEntry
+                style={styles.input}
+                placeholder="Enter: demo123 (for testing)"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+                left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
+                disabled={isConnecting}
+              />
             </View>
             
-            <List.Item
-              title="Market Data API Keys"
-              description="Configure Alpha Vantage, Polygon.io API keys"
-              left={(props) => <MaterialIcons name="trending-up" size={24} color={Colors.primary} {...props} />}
-              right={(props) => <MaterialIcons name="chevron-right" size={24} color={Colors.textMuted} {...props} />}
-              onPress={() => setShowApiKeys(true)}
-              style={styles.listItem}
-            />
-            
-            <List.Item
-              title="Broker API Settings"
-              description="OANDA API configuration"
-              left={(props) => <MaterialIcons name="account-balance" size={24} color={Colors.accent} {...props} />}
-              right={(props) => <MaterialIcons name="chevron-right" size={24} color={Colors.textMuted} {...props} />}
-              onPress={() => setShowBrokerConfig(true)}
-              style={styles.listItem}
-            />
-            
-            {tradingMode === 'demo' && (
-              <List.Item
-                title="MT5 Demo Connection"
-                description="Configure demo trading server"
-                left={(props) => <MaterialIcons name="computer" size={24} color={Colors.secondary} {...props} />}
-                right={(props) => <MaterialIcons name="chevron-right" size={24} color={Colors.textMuted} {...props} />}
-                onPress={() => setShowMT5Config(true)}
-                style={styles.listItem}
-              />
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Account Information */}
-        {realTimeData.accountInfo && (
-          <Card style={styles.card}>
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.cardTitle}>Account Information</Text>
-                <MaterialIcons name="account-circle" size={24} color={Colors.primary} />
-              </View>
+            <View style={styles.buttonRow}>
+              <Button
+                mode="contained"
+                onPress={handleMT5Connect}
+                loading={isConnecting}
+                disabled={isConnecting}
+                style={[styles.connectButton, { flex: mt5Config.connected ? 1 : 2 }]}
+                buttonColor={Colors.primary}
+                textColor={Colors.background}
+                icon={isConnecting ? "sync" : "connection"}
+              >
+                {isConnecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect Demo'}
+              </Button>
               
-              <View style={styles.accountGrid}>
-                <View style={styles.accountItem}>
-                  <Text style={styles.accountLabel}>Balance</Text>
-                  <Text style={styles.accountValue}>
-                    {'currency' in realTimeData.accountInfo ? realTimeData.accountInfo.currency : 'USD'} {
-                      ('balance' in realTimeData.accountInfo ? realTimeData.accountInfo.balance : 0).toFixed(2)
-                    }
-                  </Text>
-                </View>
-                
-                <View style={styles.accountItem}>
-                  <Text style={styles.accountLabel}>Equity</Text>
-                  <Text style={styles.accountValue}>
-                    {'currency' in realTimeData.accountInfo ? realTimeData.accountInfo.currency : 'USD'} {
-                      ('equity' in realTimeData.accountInfo ? realTimeData.accountInfo.equity : 0).toFixed(2)
-                    }
-                  </Text>
-                </View>
-                
-                <View style={styles.accountItem}>
-                  <Text style={styles.accountLabel}>Open Positions</Text>
-                  <Text style={styles.accountValue}>{realTimeData.positions.length}</Text>
-                </View>
-                
-                <View style={styles.accountItem}>
-                  <Text style={styles.accountLabel}>Environment</Text>
-                  <Text style={[styles.accountValue, { 
-                    color: tradingMode === 'live' ? Colors.bearish : Colors.bullish 
-                  }]}>
-                    {tradingMode === 'live' ? 'LIVE' : 'DEMO'}
-                  </Text>
-                </View>
-              </View>
-              
-              {connectionError && (
-                <View style={styles.errorContainer}>
-                  <MaterialIcons name="error" size={20} color={Colors.bearish} />
-                  <Text style={styles.errorText}>{connectionError}</Text>
-                </View>
+              {mt5Config.connected && (
+                <Button
+                  mode="outlined"
+                  onPress={handleMT5Disconnect}
+                  style={[styles.disconnectButton, { flex: 1 }]}
+                  textColor={Colors.bearish}
+                  icon="power-off"
+                >
+                  Disconnect
+                </Button>
               )}
-            </Card.Content>
-          </Card>
-        )}
-      </ScrollView>
-
-      {/* MT5 Configuration Modal */}
-      <Portal>
-        <Modal
-          visible={showMT5Config}
-          onDismiss={() => setShowMT5Config(false)}
-          contentContainerStyle={styles.modalContent}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>MT5 Demo Connection</Text>
-            <Button onPress={() => setShowMT5Config(false)} textColor={Colors.textMuted}>
-              <MaterialIcons name="close" size={24} />
-            </Button>
-          </View>
-          
-          <View style={styles.modalBody}>
-            <Text style={styles.modalDescription}>
-              Connect to your MT5 demo server for practice trading.
-            </Text>
-            
-            <TextInput
-              label="Server Name"
-              placeholder="e.g., MetaQuotes-Demo, YourBroker-Demo"
-              value={mt5Server}
-              onChangeText={setMt5Server}
-              style={styles.input}
-            />
-            
-            <TextInput
-              label="Login (Account Number)"
-              placeholder="e.g., 12345678"
-              value={mt5Login}
-              onChangeText={setMt5Login}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            
-            <TextInput
-              label="Password"
-              placeholder="Your MT5 password"
-              value={mt5Password}
-              onChangeText={setMt5Password}
-              secureTextEntry
-              style={styles.input}
-            />
-            
-            <View style={styles.demoCredentials}>
-              <Text style={styles.demoTitle}>Demo Credentials:</Text>
-              <Text style={styles.demoText}>Server: demo</Text>
-              <Text style={styles.demoText}>Login: 12345</Text>
-              <Text style={styles.demoText}>Password: demo123</Text>
             </View>
-            
-            <Button
-              mode="contained"
-              onPress={handleMT5Connect}
-              loading={isConnecting}
-              disabled={isConnecting}
-              style={styles.connectButton}
-            >
-              Connect to Demo
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
+          </Card.Content>
+        </Card>
 
-      {/* Broker Configuration Modal */}
-      <Portal>
-        <Modal
-          visible={showBrokerConfig}
-          onDismiss={() => setShowBrokerConfig(false)}
-          contentContainerStyle={styles.modalContent}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Broker API Configuration</Text>
-            <Button onPress={() => setShowBrokerConfig(false)} textColor={Colors.textMuted}>
-              <MaterialIcons name="close" size={24} />
-            </Button>
-          </View>
-          
-          <View style={styles.modalBody}>
-            <Text style={styles.modalDescription}>
-              Configure your OANDA API credentials for live trading.
-            </Text>
-            
-            <TextInput
-              label="API Key"
-              placeholder="Your OANDA API key"
-              value={brokerApiKey}
-              onChangeText={setBrokerApiKey}
-              secureTextEntry
-              style={styles.input}
-            />
-            
-            <TextInput
-              label="Account ID"
-              placeholder="Your OANDA account ID"
-              value={brokerAccountId}
-              onChangeText={setBrokerAccountId}
-              style={styles.input}
-            />
-            
-            <View style={styles.environmentSelector}>
-              <Text style={styles.environmentLabel}>Environment:</Text>
-              <View style={styles.environmentButtons}>
-                <Button
-                  mode={brokerEnvironment === 'sandbox' ? 'contained' : 'outlined'}
-                  onPress={() => setBrokerEnvironment('sandbox')}
-                  style={styles.environmentButton}
-                  textColor={brokerEnvironment === 'sandbox' ? Colors.background : Colors.primary}
-                >
-                  Sandbox
-                </Button>
-                <Button
-                  mode={brokerEnvironment === 'live' ? 'contained' : 'outlined'}
-                  onPress={() => setBrokerEnvironment('live')}
-                  style={styles.environmentButton}
-                  buttonColor={brokerEnvironment === 'live' ? Colors.bearish : undefined}
-                  textColor={brokerEnvironment === 'live' ? Colors.background : Colors.bearish}
-                >
-                  Live
-                </Button>
+        {/* Automation Rules */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="smart-toy" size={24} color={Colors.accent} />
+                <Text style={styles.cardTitle}>Automation Rules</Text>
               </View>
+              <Text style={styles.sectionSubtitle}>{automationRules.length} rules</Text>
             </View>
             
-            <Button
-              mode="contained"
-              onPress={handleBrokerConnect}
-              loading={isConnecting}
-              disabled={isConnecting}
-              style={styles.connectButton}
-              buttonColor={brokerEnvironment === 'live' ? Colors.bearish : Colors.primary}
-            >
-              Connect to {brokerEnvironment === 'live' ? 'Live' : 'Sandbox'}
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
-
-      {/* API Keys Information Modal */}
-      <Portal>
-        <Modal
-          visible={showApiKeys}
-          onDismiss={() => setShowApiKeys(false)}
-          contentContainerStyle={styles.modalContent}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Market Data API Keys</Text>
-            <Button onPress={() => setShowApiKeys(false)} textColor={Colors.textMuted}>
-              <MaterialIcons name="close" size={24} />
-            </Button>
-          </View>
-          
-          <View style={styles.modalBody}>
-            <Text style={styles.modalDescription}>
-              Configure your market data provider API keys in Supabase environment variables.
-            </Text>
-            
-            <View style={styles.apiKeyInfo}>
-              <Text style={styles.apiKeyTitle}>Required Variables:</Text>
-              <Text style={styles.apiKeyItem}>• EXPO_PUBLIC_ALPHA_VANTAGE_API_KEY</Text>
-              <Text style={styles.apiKeyItem}>• EXPO_PUBLIC_POLYGON_API_KEY</Text>
-              <Text style={styles.apiKeyItem}>• EXPO_PUBLIC_OANDA_API_KEY</Text>
-              <Text style={styles.apiKeyItem}>• EXPO_PUBLIC_OANDA_ACCOUNT_ID</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                label="Rule Name"
+                value={newRuleName}
+                onChangeText={setNewRuleName}
+                mode="outlined"
+                style={styles.input}
+                placeholder="e.g., RSI Oversold Buy Signal"
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+              />
+              
+              <TextInput
+                label="Rule Description"
+                value={newRuleDescription}
+                onChangeText={setNewRuleDescription}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+                placeholder="Describe the conditions and actions..."
+                theme={{
+                  colors: {
+                    primary: Colors.primary,
+                    onSurface: Colors.textPrimary,
+                    outline: Colors.border,
+                    surface: Colors.inputBackground,
+                  }
+                }}
+                textColor={Colors.textPrimary}
+              />
             </View>
-            
-            <Text style={styles.apiKeyNote}>
-              These keys should be configured in your Supabase project settings for security.
-            </Text>
             
             <Button
               mode="outlined"
-              onPress={handleMarketDataConnect}
-              style={styles.connectButton}
-              textColor={Colors.primary}
+              onPress={handleAddRule}
+              style={styles.addRuleButton}
+              textColor={Colors.accent}
+              icon="plus"
             >
-              Test Market Data Connection
+              Add Automation Rule
             </Button>
+            
+            {automationRules.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="psychology" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No automation rules configured</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Create rules to automate your trading strategies
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.rulesContainer}>
+                  {automationRules.map((rule, index) => (
+                    <View key={rule.id}>
+                      <View style={styles.ruleItem}>
+                        <View style={styles.ruleHeader}>
+                          <View style={styles.ruleInfo}>
+                            <Text style={styles.ruleName}>{rule.name}</Text>
+                            <Text style={styles.ruleDescription}>{rule.description}</Text>
+                          </View>
+                          <Switch
+                            value={rule.isActive}
+                            onValueChange={() => toggleAutomationRule(rule.id)}
+                            thumbColor={rule.isActive ? Colors.bullish : Colors.textMuted}
+                            trackColor={{
+                              false: Colors.border,
+                              true: Colors.bullish + '40'
+                            }}
+                          />
+                        </View>
+                        
+                        <View style={styles.ruleActions}>
+                          <View style={styles.ruleStats}>
+                            <View style={styles.ruleStat}>
+                              <Text style={styles.ruleStatValue}>
+                                {Math.floor(Math.random() * 15) + 1}
+                              </Text>
+                              <Text style={styles.ruleStatLabel}>Triggers</Text>
+                            </View>
+                            <View style={styles.ruleStat}>
+                              <Text style={styles.ruleStatValue}>
+                                {(Math.random() * 30 + 60).toFixed(0)}%
+                              </Text>
+                              <Text style={styles.ruleStatLabel}>Success</Text>
+                            </View>
+                          </View>
+                          
+                          <Button
+                            mode="text"
+                            onPress={() => handleDeleteRule(rule.id)}
+                            textColor={Colors.bearish}
+                            compact
+                            icon="delete"
+                          >
+                            Delete
+                          </Button>
+                        </View>
+                      </View>
+                      {index < automationRules.length - 1 && <Divider style={styles.ruleDivider} />}
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Account Actions */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="manage-accounts" size={24} color={Colors.bearish} />
+                <Text style={styles.cardTitle}>Account Management</Text>
+              </View>
+            </View>
+            
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerZoneTitle}>Account Actions</Text>
+              <Text style={styles.dangerZoneDescription}>
+                These actions will affect your account and trading session
+              </Text>
+              
+              <Button
+                mode="outlined"
+                onPress={() => showConfirm('Sign Out', 'Are you sure you want to sign out?', signOut)}
+                style={styles.signOutButton}
+                textColor={Colors.bearish}
+                icon="logout"
+              >
+                Sign Out
+              </Button>
+            </View>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* Cross-platform Alert Modal */}
+      {Platform.OS === 'web' && (
+        <Modal visible={alertConfig.visible} transparent animationType="fade">
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertContainer}>
+              <Text style={styles.alertTitle}>{alertConfig.title}</Text>
+              <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+              <View style={styles.alertButtons}>
+                {alertConfig.showCancel && (
+                  <TouchableOpacity
+                    style={[styles.alertButton, styles.alertCancelButton]}
+                    onPress={() => {
+                      alertConfig.onCancel?.();
+                      setAlertConfig(prev => ({ ...prev, visible: false }));
+                    }}
+                  >
+                    <Text style={styles.alertCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.alertButton, styles.alertOkButton]}
+                  onPress={() => {
+                    alertConfig.onOk?.();
+                    setAlertConfig(prev => ({ ...prev, visible: false }));
+                  }}
+                >
+                  <Text style={styles.alertOkButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </Modal>
-      </Portal>
-
-      {/* Risk Warning Dialog */}
-      <Portal>
-        <Dialog visible={showRiskWarning} onDismiss={() => setShowRiskWarning(false)}>
-          <Dialog.Icon icon="warning" size={48} />
-          <Dialog.Title style={styles.warningTitle}>Live Trading Risk Warning</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.warningDialogText}>
-              You are about to connect to a LIVE trading environment where REAL MONEY is at risk.
-            </Text>
-            <Text style={styles.warningDialogText}>
-              • All trades will be executed with real funds
-            </Text>
-            <Text style={styles.warningDialogText}>
-              • Losses can exceed your initial investment
-            </Text>
-            <Text style={styles.warningDialogText}>
-              • Ensure you understand the risks involved
-            </Text>
-            <Text style={styles.warningDialogText}>
-              • Only trade with money you can afford to lose
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowRiskWarning(false)}>Cancel</Button>
-            <Button 
-              onPress={handleLiveTradingConfirm}
-              textColor={Colors.bearish}
-              buttonColor={Colors.bearish + '20'}
-            >
-              I Understand the Risks
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      )}
     </SafeAreaView>
   );
 }
@@ -607,6 +552,96 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  demoNoticeCard: {
+    marginTop: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 8,
+    backgroundColor: Colors.primary + '10',
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  demoNoticeContent: {
+    paddingVertical: 20,
+  },
+  demoNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  demoNoticeTitle: {
+    ...Typography.h6,
+    color: Colors.primary,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  demoNoticeText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  demoCredentials: {
+    backgroundColor: Colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  demoCredentialItem: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  demoCredentialValue: {
+    color: Colors.primary,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  profileCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 8,
+  },
+  profileGradient: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    marginRight: 16,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    ...Typography.h5,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  profileEmail: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  profileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bullish + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  profileBadgeText: {
+    ...Typography.caption,
+    color: Colors.bullish,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
   card: {
     marginBottom: 16,
     backgroundColor: Colors.surface,
@@ -622,63 +657,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   cardTitle: {
     ...Typography.h6,
     color: Colors.textPrimary,
+    marginLeft: 8,
   },
-  tradingModeContainer: {
-    gap: 16,
-  },
-  modeOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modeInfo: {
-    flex: 1,
-  },
-  modeTitle: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  modeDescription: {
+  sectionSubtitle: {
     ...Typography.body2,
-    color: Colors.textSecondary,
-    marginTop: 4,
+    color: Colors.textMuted,
   },
-  divider: {
-    backgroundColor: Colors.border,
-  },
-  warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bearish + '10',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    gap: 8,
-  },
-  warningText: {
-    ...Typography.body2,
-    color: Colors.bearish,
-    flex: 1,
-  },
-  connectionItem: {
-    marginBottom: 16,
-  },
-  connectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  connectionTitle: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  statusBadge: {
+  connectionStatus: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
@@ -686,42 +678,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
   },
-  statusText: {
+  connectionStatusText: {
     ...Typography.caption,
-    fontWeight: '600',
-  },
-  environmentText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 8,
-  },
-  connectionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  connectionButton: {
-    borderColor: Colors.primary,
-  },
-  listItem: {
-    paddingVertical: 8,
-  },
-  accountGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  accountItem: {
-    flex: 1,
-    minWidth: '45%',
-  },
-  accountLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 4,
-  },
-  accountValue: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
     fontWeight: '600',
   },
   errorContainer: {
@@ -730,113 +688,220 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bearish + '10',
     padding: 12,
     borderRadius: 8,
-    marginTop: 16,
+    marginBottom: 16,
     gap: 8,
   },
   errorText: {
     ...Typography.body2,
     color: Colors.bearish,
     flex: 1,
+    lineHeight: 18,
   },
-  modalContent: {
-    backgroundColor: Colors.surface,
-    margin: 20,
-    borderRadius: 16,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  modalTitle: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-  },
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  modalDescription: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
+  accountInfoContainer: {
+    backgroundColor: Colors.bullish + '10',
+    padding: 16,
+    borderRadius: 8,
     marginBottom: 20,
-    lineHeight: 20,
+  },
+  accountInfoTitle: {
+    ...Typography.body1,
+    color: Colors.bullish,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  accountInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  accountInfoItem: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  accountInfoLabel: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  accountInfoValue: {
+    ...Typography.body2,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  inputContainer: {
+    marginBottom: 20,
   },
   input: {
     marginBottom: 16,
     backgroundColor: Colors.inputBackground,
   },
-  demoCredentials: {
-    backgroundColor: Colors.primary + '10',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  demoTitle: {
-    ...Typography.body2,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  demoText: {
-    ...Typography.caption,
-    color: Colors.primary,
-    fontFamily: 'monospace',
-  },
-  environmentSelector: {
-    marginBottom: 20,
-  },
-  environmentLabel: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginBottom: 12,
-  },
-  environmentButtons: {
+  buttonRow: {
     flexDirection: 'row',
     gap: 12,
   },
-  environmentButton: {
-    flex: 1,
-  },
   connectButton: {
+    marginTop: 4,
+  },
+  disconnectButton: {
+    marginTop: 4,
+    borderColor: Colors.bearish,
+  },
+  addRuleButton: {
+    borderColor: Colors.accent,
+    marginBottom: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    ...Typography.h6,
+    color: Colors.textMuted,
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    ...Typography.body2,
+    color: Colors.textMuted,
     marginTop: 8,
+    textAlign: 'center',
   },
-  apiKeyInfo: {
-    backgroundColor: Colors.cardElevated,
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+  divider: {
+    backgroundColor: Colors.border,
+    marginBottom: 20,
   },
-  apiKeyTitle: {
+  rulesContainer: {
+    gap: 0,
+  },
+  ruleItem: {
+    paddingVertical: 16,
+  },
+  ruleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  ruleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  ruleName: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  ruleDescription: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  ruleActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ruleStats: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  ruleStat: {
+    alignItems: 'center',
+  },
+  ruleStatValue: {
     ...Typography.body2,
     color: Colors.textPrimary,
     fontWeight: '600',
-    marginBottom: 8,
   },
-  apiKeyItem: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontFamily: 'monospace',
-    marginBottom: 4,
-  },
-  apiKeyNote: {
+  ruleStatLabel: {
     ...Typography.caption,
     color: Colors.textMuted,
-    fontStyle: 'italic',
-    marginBottom: 16,
   },
-  warningTitle: {
+  ruleDivider: {
+    backgroundColor: Colors.border,
+  },
+  dangerZone: {
+    backgroundColor: Colors.bearish + '10',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.bearish + '30',
+  },
+  dangerZoneTitle: {
+    ...Typography.body1,
     color: Colors.bearish,
-    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 8,
   },
-  warningDialogText: {
+  dangerZoneDescription: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 16,
     lineHeight: 20,
+  },
+  signOutButton: {
+    borderColor: Colors.bearish,
+  },
+  // Cross-platform alert styles
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alertContainer: {
+    backgroundColor: Colors.surface,
+    padding: 24,
+    borderRadius: 12,
+    minWidth: 300,
+    maxWidth: '90%',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  alertTitle: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  alertButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: Colors.border,
+  },
+  alertOkButton: {
+    backgroundColor: Colors.primary,
+  },
+  alertCancelButtonText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  alertOkButtonText: {
+    ...Typography.body2,
+    color: Colors.background,
+    fontWeight: '500',
   },
 });

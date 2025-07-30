@@ -225,18 +225,18 @@ export default function Dashboard() {
             <View style={styles.symbolContainer}>
               <View style={styles.symbolHeader}>
                 <Text style={styles.selectedSymbol}>{selectedSymbol}</Text>
-              <View style={styles.symbolPrices}>
-                {realTimeData.quotes[selectedSymbol] && (
-                  <>
-                    <Text style={styles.bidPrice}>
-                      Bid: {realTimeData.quotes[selectedSymbol].bid.toFixed(5)}
-                    </Text>
-                    <Text style={styles.askPrice}>
-                      Ask: {realTimeData.quotes[selectedSymbol].ask.toFixed(5)}
-                    </Text>
-                  </>
-                )}
-              </View>
+                <View style={styles.symbolPrices}>
+                  {realTimeData.symbols[selectedSymbol] && (
+                    <>
+                      <Text style={styles.bidPrice}>
+                        Bid: {realTimeData.symbols[selectedSymbol].bid.toFixed(5)}
+                      </Text>
+                      <Text style={styles.askPrice}>
+                        Ask: {realTimeData.symbols[selectedSymbol].ask.toFixed(5)}
+                      </Text>
+                    </>
+                  )}
+                </View>
               </View>
               
               <View style={styles.indicatorsGrid}>

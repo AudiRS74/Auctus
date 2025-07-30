@@ -1,17 +1,20 @@
 import React, { createContext, ReactNode, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleAuth } from '../services/googleAuth';
 
-export interface User {
+interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,60 +24,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize with demo user for now
-    setTimeout(() => {
-      setUser({
-        id: 'demo-user',
-        name: 'Demo Trader',
-        email: 'demo@trader.com'
-      });
-      setLoading(false);
-    }, 1000);
+    // Check for existing user session
+    checkStoredUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const checkStoredUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error('Error checking stored user:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate login
+      // Simulate authentication
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setUser({
+      
+      // For demo purposes, accept any email/password
+      const userData: User = {
         id: '1',
-        name: 'Demo Trader',
-        email: email
-      });
+        email,
+        name: email.split('@')[0],
+      };
+      
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
     } catch (error) {
-      console.error('Login failed:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
+  const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Simulate registration
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const userData: User = {
+        id: Date.now().toString(),
+        email,
+        name,
+      };
+      
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const result = await GoogleAuth.signIn();
+      
+      if (result.success && result.user) {
+        const userData: User = {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        };
+        
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      } else {
+        throw new Error(result.error || 'Google authentication failed');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      await AsyncStorage.removeItem('user');
       setUser(null);
     } catch (error) {
-      console.error('Logout failed:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signup = async (email: string, password: string, name: string) => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setUser({
-        id: '1',
-        name: name,
-        email: email
-      });
-    } catch (error) {
-      console.error('Signup failed:', error);
-      throw error;
+      console.error('Error signing out:', error);
     } finally {
       setLoading(false);
     }
@@ -83,14 +123,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     loading,
-    login,
-    logout,
-    signup,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signOut,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
