@@ -115,6 +115,144 @@ export default function Trading() {
               ))}
             </ScrollView>
           </Card.Content>
+                </Card>
+
+        {/* Trade Execution */}
+        <Card style={styles.tradeCard}>
+          <LinearGradient
+            colors={[Colors.primary + '10', Colors.surface]}
+            style={styles.tradeCardGradient}
+          >
+            <View style={styles.tradeHeader}>
+              <View>
+                <Text style={styles.tradeTitle}>Execute Trade</Text>
+                <Text style={styles.selectedSymbolText}>{selectedSymbol}</Text>
+              </View>
+              <View style={styles.symbolIcon}>
+                <MaterialIcons name="account-balance" size={24} color={Colors.primary} />
+              </View>
+            </View>
+            
+            <TextInput
+              label="Quantity (Lots)"
+              value={quantity}
+              onChangeText={setQuantity}
+              mode="outlined"
+              keyboardType="numeric"
+              style={styles.input}
+              placeholder="Enter trade size"
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="chart-line" iconColor={Colors.textMuted} />}
+            />
+            
+            <View style={styles.buttonRow}>
+              <Button
+                mode="contained"
+                onPress={() => handleTrade('BUY')}
+                loading={loading}
+                disabled={loading}
+                style={[styles.tradeButton, styles.buyButton]}
+                buttonColor={Colors.bullish}
+                textColor={Colors.background}
+                icon="trending-up"
+                labelStyle={styles.tradeButtonText}
+              >
+                BUY
+              </Button>
+              
+              <Button
+                mode="contained"
+                onPress={() => handleTrade('SELL')}
+                loading={loading}
+                disabled={loading}
+                style={[styles.tradeButton, styles.sellButton]}
+                buttonColor={Colors.bearish}
+                textColor={Colors.background}
+                icon="trending-down"
+                labelStyle={styles.tradeButtonText}
+              >
+                SELL
+              </Button>
+            </View>
+          </LinearGradient>
+        </Card>
+        {/* Recent Trades & Positions */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.cardTitle}>Recent Activity</Text>
+              <MaterialIcons name="history" size={24} color={Colors.accent} />
+            </View>
+
+            {trades.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="trending-up" size={64} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No trades executed</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Execute your first trade to start building your portfolio
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.tradesContainer}>
+                {trades.slice(0, 5).map((trade, index) => (
+                  <View 
+                    key={trade.id} 
+                    style={[
+                      styles.tradeRow,
+                      index === Math.min(4, trades.length - 1) && styles.lastTradeRow
+                    ]}
+                  >
+                    <View style={styles.tradeMainInfo}>
+                      <View style={styles.tradeSymbolContainer}>
+                        <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
+                        <View style={[
+                          styles.tradeTypeBadge,
+                          { backgroundColor: trade.type === 'BUY' ? Colors.bullish : Colors.bearish }
+                        ]}>
+                          <Text style={[
+                            styles.tradeType,
+                            { color: Colors.background }
+                          ]}>
+                            {trade.type}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.tradeDetails}>
+                        <Text style={styles.tradeQuantity}>
+                          Qty: {trade.quantity}
+                        </Text>
+                        <Text style={styles.tradeStatus}>
+                          {trade.status}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.tradeProfitContainer}>
+                      <MaterialIcons 
+                        name={(trade.profit || 0) >= 0 ? "trending-up" : "trending-down"} 
+                        size={20} 
+                        color={(trade.profit || 0) >= 0 ? Colors.bullish : Colors.bearish} 
+                      />
+                      <Text style={[
+                        styles.tradeProfit,
+                        { color: (trade.profit || 0) >= 0 ? Colors.bullish : Colors.bearish }
+                      ]}>
+                        {(trade.profit || 0) >= 0 ? '+' : ''}${(trade.profit || 0).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card.Content>
         </Card>
 
         {/* All Markets with Search */}
