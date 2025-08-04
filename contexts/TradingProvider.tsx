@@ -1,5 +1,6 @@
 import React, { createContext, ReactNode, useState, useEffect } from 'react';
 import { mt5Service, MT5Credentials, MT5AccountInfo, MT5Position, MT5Symbol } from '../services/mt5Service';
+import { tradingViewService, TradingViewData } from '../services/tradingViewService';
 import { automationEngine } from '../services/automationEngine';
 
 interface Trade {
@@ -65,6 +66,7 @@ interface RealTimeData {
   accountInfo: MT5AccountInfo | null;
   positions: MT5Position[];
   symbols: { [key: string]: MT5Symbol };
+  marketData: { [key: string]: TradingViewData };
   lastUpdate: Date | null;
 }
 
@@ -93,6 +95,7 @@ interface TradingContextType {
   startAutomation: () => void;
   stopAutomation: () => void;
   refreshAccountData: () => Promise<void>;
+  getMarketData: (symbol: string) => TradingViewData | null;
 }
 
 export const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -108,7 +111,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const [indicators, setIndicators] = useState<TechnicalIndicators>({
     rsi: 65.4,
     fibonacciLevels: [1.618, 1.382, 1.236, 1.000, 0.786, 0.618, 0.500, 0.382, 0.236],
-    movingAverage: 1.2543,
+    movingAverage: 1.0845,
     macd: { signal: 0.0012, histogram: -0.0003 },
   });
   const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
@@ -124,10 +127,14 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     accountInfo: null,
     positions: [],
     symbols: {},
+    marketData: {},
     lastUpdate: null,
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // Market data subscriptions
+  const [marketSubscriptions, setMarketSubscriptions] = useState<Map<string, () => void>>(new Map());
 
   // Set up MT5 service event listeners
   useEffect(() => {
@@ -141,12 +148,13 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     const handleDisconnected = () => {
       console.log('MT5 Disconnected');
       setMT5Config(prev => ({ ...prev, connected: false }));
-      setRealTimeData({
+      setRealTimeData(prev => ({
+        ...prev,
         accountInfo: null,
         positions: [],
         symbols: {},
         lastUpdate: null,
-      });
+      }));
     };
 
     const handleAccountInfo = (accountInfo: MT5AccountInfo) => {
@@ -168,7 +176,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     };
 
     const handleTick = (symbolData: MT5Symbol) => {
-      console.log('Received tick data:', symbolData);
       setRealTimeData(prev => ({
         ...prev,
         symbols: {
@@ -185,7 +192,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       setIsConnecting(false);
     };
 
-    // Register event listeners
+    // Register MT5 event listeners
     mt5Service.on('connected', handleConnected);
     mt5Service.on('disconnected', handleDisconnected);
     mt5Service.on('account_info', handleAccountInfo);
@@ -203,6 +210,73 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       mt5Service.off('error', handleError);
     };
   }, []);
+
+  // Subscribe to market data for selected symbol
+  useEffect(() => {
+    const subscribeToMarketData = (symbol: string) => {
+      // Unsubscribe from existing subscription if any
+      const existingUnsub = marketSubscriptions.get(symbol);
+      if (existingUnsub) {
+        existingUnsub();
+        marketSubscriptions.delete(symbol);
+      }
+
+      // Subscribe to new symbol
+      const unsubscribe = tradingViewService.subscribeToPrice(symbol, (data: TradingViewData) => {
+        setRealTimeData(prev => ({
+          ...prev,
+          marketData: {
+            ...prev.marketData,
+            [symbol]: data,
+          },
+          lastUpdate: new Date(),
+        }));
+
+        // Update indicators based on new price data
+        updateIndicatorsFromMarketData(data);
+      });
+
+      marketSubscriptions.set(symbol, unsubscribe);
+      setMarketSubscriptions(new Map(marketSubscriptions));
+    };
+
+    subscribeToMarketData(selectedSymbol);
+
+    return () => {
+      // Cleanup subscription when component unmounts or symbol changes
+      const unsubscribe = marketSubscriptions.get(selectedSymbol);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [selectedSymbol]);
+
+  const updateIndicatorsFromMarketData = (marketData: TradingViewData) => {
+    // Calculate technical indicators based on real market data
+    const price = marketData.price;
+    const change = marketData.change;
+    const changePercent = marketData.changePercent;
+
+    // Simulate RSI calculation based on price movement
+    const rsi = Math.max(0, Math.min(100, 50 + (changePercent * 2)));
+    
+    // Simulate Moving Average (slightly below current price for uptrend, above for downtrend)
+    const ma = change > 0 ? price - Math.abs(price * 0.001) : price + Math.abs(price * 0.001);
+    
+    // Simulate MACD based on price momentum
+    const macdSignal = changePercent > 0 ? Math.abs(change * 0.1) : -Math.abs(change * 0.1);
+    const macdHistogram = macdSignal * 0.8;
+
+    setIndicators(prev => ({
+      ...prev,
+      rsi: Number(rsi.toFixed(2)),
+      movingAverage: Number(ma.toFixed(5)),
+      macd: {
+        signal: Number(macdSignal.toFixed(6)),
+        histogram: Number(macdHistogram.toFixed(6)),
+      },
+    }));
+  };
 
   const executeTrade = async (symbol: string, type: 'BUY' | 'SELL', quantity: number) => {
     try {
@@ -237,25 +311,33 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         }, 1000);
         
       } else {
-        // Fallback to simulation mode
+        // Fallback to simulation mode with real market data
+        const marketData = realTimeData.marketData[symbol];
+        const price = marketData ? marketData.price : Math.random() * 100 + 1;
+
         const newTrade: Trade = {
           id: Date.now().toString(),
           symbol,
           type,
           quantity,
-          price: Math.random() * 100 + 1,
+          price,
           timestamp: new Date(),
           status: 'PENDING',
         };
 
         setTrades(prev => [newTrade, ...prev]);
 
-        // Simulate trade execution
+        // Simulate trade execution with realistic profit calculation
         setTimeout(() => {
+          const marketMovement = (Math.random() - 0.45) * 0.01; // Slightly positive bias
+          const profit = type === 'BUY' ? 
+            quantity * price * marketMovement : 
+            quantity * price * -marketMovement;
+
           setTrades(prev => 
             prev.map(trade => 
               trade.id === newTrade.id 
-                ? { ...trade, status: 'EXECUTED' as const, profit: (Math.random() - 0.5) * 100 }
+                ? { ...trade, status: 'EXECUTED' as const, profit: Number(profit.toFixed(2)) }
                 : trade
             )
           );
@@ -267,7 +349,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     }
   };
 
-    const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {
+  const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {
     console.log('Starting MT5 connection process...', { server: config.server, login: config.login });
     setIsConnecting(true);
     setConnectionError(null);
@@ -277,13 +359,12 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       const credentials: MT5Credentials = {
         server: config.server.trim(),
         login: config.login.trim(),
-        password: config.password, // Don't trim password as it might contain intentional spaces
+        password: config.password,
       };
 
       console.log('Attempting connection with credentials:', { 
         server: credentials.server, 
         login: credentials.login,
-        // Don't log password for security
       });
 
       const connected = await mt5Service.connect(credentials);
@@ -292,7 +373,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         console.log('MT5 connection successful');
         setMT5Config({ ...config, connected: true });
         
-        // Subscribe to common symbols for real-time data with error handling
+        // Subscribe to common symbols for real-time data
         const commonSymbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
         const subscriptionPromises = commonSymbols.map(async (symbol) => {
           try {
@@ -300,13 +381,11 @@ export function TradingProvider({ children }: { children: ReactNode }) {
             console.log(`Successfully subscribed to ${symbol}`);
           } catch (error) {
             console.warn(`Failed to subscribe to ${symbol}:`, error);
-            // Don't fail the entire connection for subscription errors
           }
         });
         
-        // Wait for subscriptions but don't let them block the connection
         Promise.allSettled(subscriptionPromises).then(() => {
-          console.log('Symbol subscription process completed');
+          console.log('MT5 symbol subscription process completed');
         });
         
       } else {
@@ -333,7 +412,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         } else if (errorMsg.includes('blocked') || errorMsg.includes('suspended')) {
           userFriendlyError = 'Account blocked or suspended. Please contact your broker.';
         } else if (errorMsg.includes('validation')) {
-          userFriendlyError = error.message; // Use the detailed validation message
+          userFriendlyError = error.message;
         } else {
           userFriendlyError = error.message;
         }
@@ -348,10 +427,16 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     try {
       mt5Service.disconnect();
       setMT5Config(prev => ({ ...prev, connected: false }));
+      
+      // Clear all market data subscriptions
+      marketSubscriptions.forEach(unsubscribe => unsubscribe());
+      setMarketSubscriptions(new Map());
+      
       setRealTimeData({
         accountInfo: null,
         positions: [],
         symbols: {},
+        marketData: {},
         lastUpdate: null,
       });
       setConnectionError(null);
@@ -389,17 +474,15 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   };
 
   const updateIndicators = async (symbol: string) => {
-    // Simulate fetching real-time indicators
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setIndicators({
-      rsi: Math.random() * 100,
-      fibonacciLevels: [1.618, 1.382, 1.236, 1.000, 0.786, 0.618, 0.500, 0.382, 0.236],
-      movingAverage: Math.random() * 2,
-      macd: { 
-        signal: (Math.random() - 0.5) * 0.01, 
-        histogram: (Math.random() - 0.5) * 0.01 
-      },
-    });
+    // Get real market data for indicator calculation
+    const marketData = await tradingViewService.getRealTimePrice(symbol);
+    if (marketData) {
+      updateIndicatorsFromMarketData(marketData);
+    }
+  };
+
+  const getMarketData = (symbol: string): TradingViewData | null => {
+    return realTimeData.marketData[symbol] || null;
   };
 
   const addAutomationRule = (name: string, description: string) => {
@@ -457,7 +540,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       lastUpdate: new Date(),
     }));
 
-    // Start monitoring for signals
     startSignalMonitoring();
   };
 
@@ -487,27 +569,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  // Auto-refresh indicators
-  useEffect(() => {
-    const interval = setInterval(() => {
-      updateIndicators(selectedSymbol);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [selectedSymbol]);
-
-  // Auto-refresh account data when connected
-  useEffect(() => {
-    if (mt5Config.connected) {
-      const interval = setInterval(() => {
-        refreshAccountData();
-      }, 10000); // Refresh every 10 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [mt5Config.connected]);
-
-    // Signal monitoring for automation - optimized version
+  // Signal monitoring for automation
   const [signalMonitoringInterval, setSignalMonitoringInterval] = useState<NodeJS.Timeout | null>(null);
 
   const startSignalMonitoring = () => {
@@ -517,7 +579,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(() => {
       monitorAutomationSignals();
-    }, 15000); // Check for signals every 15 seconds for better performance
+    }, 15000); // Check every 15 seconds
 
     setSignalMonitoringInterval(interval);
   };
@@ -525,18 +587,15 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const monitorAutomationSignals = async () => {
     const activeStrategies = automationStrategies.filter(s => s.isActive);
     
-    if (activeStrategies.length === 0) {
-      return; // No active strategies, skip processing
-    }
+    if (activeStrategies.length === 0) return;
     
     const signalPromises = activeStrategies.map(async (strategy) => {
       try {
         const signal = automationEngine.evaluateStrategy(strategy, strategy.symbol);
         
-        if (signal && signal.strength >= 65) { // Higher threshold for more selective trading
+        if (signal && signal.strength >= 65) {
           console.log('Automation signal generated:', signal);
           
-          // Execute trade based on signal with error handling
           try {
             await executeTrade(strategy.symbol, signal.action, strategy.positionSize);
             
@@ -547,7 +606,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
                   ? {
                       ...s,
                       triggeredCount: s.triggeredCount + 1,
-                      // More realistic success rate update
                       successRate: Math.max(0, Math.min(100, 
                         s.successRate + (Math.random() > 0.35 ? 
                           Math.random() * 3 : -Math.random() * 2)
@@ -558,7 +616,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
               )
             );
 
-            // Add signal to engine
             automationEngine.addSignal(signal);
             return true;
           } catch (tradeError) {
@@ -573,44 +630,45 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       return false;
     });
 
-    // Process signals in parallel but limit concurrency
     await Promise.allSettled(signalPromises);
     updateAutomationStatus();
-  };  // Update automation status when strategies change - optimized
+  };
+
+  // Auto-refresh indicators based on real market data
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      updateAutomationStatus();
-    }, 100); // Debounce updates
+    const interval = setInterval(() => {
+      updateIndicators(selectedSymbol);
+    }, 10000); // Update every 10 seconds with real data
 
-    return () => clearTimeout(timeoutId);
-  }, [automationStrategies]);
+    return () => clearInterval(interval);
+  }, [selectedSymbol]);
 
-  // Cleanup intervals on unmount and component lifecycle management
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clean up all intervals and resources
+      // Clean up all market data subscriptions
+      marketSubscriptions.forEach(unsubscribe => unsubscribe());
+      
+      // Clean up intervals
       if (signalMonitoringInterval) {
         clearInterval(signalMonitoringInterval);
       }
-      // Clean up automation engine
+      
+      // Clean up services
+      tradingViewService.cleanup();
       automationEngine.cleanup();
     };
   }, []);
 
-  // Optimize memory usage - periodic cleanup
+  // Update automation status when strategies change
   useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      // Clean up old trades (keep last 100)
-      setTrades(prev => prev.slice(-100));
-      
-      // Clean up old automation rules if too many
-      if (automationRules.length > 50) {
-        setAutomationRules(prev => prev.slice(-50));
-      }
-    }, 300000); // Every 5 minutes
+    const timeoutId = setTimeout(() => {
+      updateAutomationStatus();
+    }, 100);
 
-    return () => clearInterval(cleanupInterval);
-  }, []);
+    return () => clearTimeout(timeoutId);
+  }, [automationStrategies]);
+
   const value = {
     trades,
     mt5Config,
@@ -636,6 +694,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     startAutomation,
     stopAutomation,
     refreshAccountData,
+    getMarketData,
   };
 
   return <TradingContext.Provider value={value}>{children}</TradingContext.Provider>;

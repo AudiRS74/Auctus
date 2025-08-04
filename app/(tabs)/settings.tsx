@@ -175,26 +175,26 @@ export default function Settings() {
           </LinearGradient>
         </Card>
 
-        {/* MT5 Connection */}
+                {/* MT5 Connection */}
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="cloud" size={24} color={Colors.secondary} />
-                <Text style={styles.cardTitle}>MT5 Demo Connection</Text>
+                <MaterialIcons name="account-balance" size={24} color={Colors.secondary} />
+                <Text style={styles.cardTitle}>MetaTrader 5 Terminal</Text>
               </View>
               <View style={[styles.connectionStatus, { 
                 backgroundColor: mt5Config.connected ? Colors.bullish + '20' : isConnecting ? Colors.primary + '20' : Colors.bearish + '20' 
               }]}>
                 <MaterialIcons 
-                  name={mt5Config.connected ? "wifi" : isConnecting ? "sync" : "wifi-off"} 
+                  name={mt5Config.connected ? "link" : isConnecting ? "sync" : "link-off"} 
                   size={16} 
                   color={mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish} 
                 />
                 <Text style={[styles.connectionStatusText, { 
                   color: mt5Config.connected ? Colors.bullish : isConnecting ? Colors.primary : Colors.bearish 
                 }]}>
-                  {mt5Config.connected ? 'Demo Trading' : isConnecting ? 'Connecting...' : 'Offline'}
+                  {mt5Config.connected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
                 </Text>
               </View>
             </View>
@@ -237,67 +237,95 @@ export default function Settings() {
             )}
             
             <View style={styles.inputContainer}>
-              <TextInput
-                label="Server"
-                value={server}
-                onChangeText={setServer}
-                mode="outlined"
-                style={styles.input}
-                placeholder="Enter: demo (for testing)"
-                theme={{
-                  colors: {
-                    primary: Colors.primary,
-                    onSurface: Colors.textPrimary,
-                    outline: Colors.border,
-                    surface: Colors.inputBackground,
-                  }
-                }}
-                textColor={Colors.textPrimary}
-                left={<TextInput.Icon icon="server" iconColor={Colors.textMuted} />}
-                disabled={isConnecting}
-              />
-              
-              <TextInput
-                label="Login"
-                value={login}
-                onChangeText={setLogin}
-                mode="outlined"
-                keyboardType="numeric"
-                style={styles.input}
-                placeholder="Enter: 12345 (for testing)"
-                theme={{
-                  colors: {
-                    primary: Colors.primary,
-                    onSurface: Colors.textPrimary,
-                    outline: Colors.border,
-                    surface: Colors.inputBackground,
-                  }
-                }}
-                textColor={Colors.textPrimary}
-                left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
-                disabled={isConnecting}
-              />
-              
-              <TextInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                mode="outlined"
-                secureTextEntry
-                style={styles.input}
-                placeholder="Enter: demo123 (for testing)"
-                theme={{
-                  colors: {
-                    primary: Colors.primary,
-                    onSurface: Colors.textPrimary,
-                    outline: Colors.border,
-                    surface: Colors.inputBackground,
-                  }
-                }}
-                textColor={Colors.textPrimary}
-                left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
-                disabled={isConnecting}
-              />
+            <TextInput
+              label="Trade Server"
+              value={server}
+              onChangeText={setServer}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g., MetaQuotes-Demo"
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="dns" iconColor={Colors.textMuted} />}
+              disabled={isConnecting}
+              right={
+                <TextInput.Icon 
+                  icon="help-circle-outline" 
+                  iconColor={Colors.textMuted}
+                  onPress={() => showAlert(
+                    'Trade Server',
+                    'Enter your broker\'s MT5 server name.\n\nDemo servers:\n• MetaQuotes-Demo\n• Demo-MetaTrader5\n• MT5-Demo\n\nFor testing use: "demo"'
+                  )}
+                />
+              }
+            />
+            <TextInput
+              label="Login"
+              value={login}
+              onChangeText={setLogin}
+              mode="outlined"
+              keyboardType="numeric"
+              style={styles.input}
+              placeholder="Account number (e.g., 1234567)"
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="badge-account-horizontal-outline" iconColor={Colors.textMuted} />}
+              disabled={isConnecting}
+              right={
+                <TextInput.Icon 
+                  icon="help-circle-outline" 
+                  iconColor={Colors.textMuted}
+                  onPress={() => showAlert(
+                    'Login Number',
+                    'Your MT5 account login number provided by your broker.\n\nTypically 6-10 digits.\n\nFor testing use: "12345"'
+                  )}
+                />
+              }
+            />
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              mode="outlined"
+              secureTextEntry
+              style={styles.input}
+              placeholder="Account password"
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="form-textbox-password" iconColor={Colors.textMuted} />}
+              disabled={isConnecting}
+              right={
+                <TextInput.Icon 
+                  icon="help-circle-outline" 
+                  iconColor={Colors.textMuted}
+                  onPress={() => showAlert(
+                    'Account Password',
+                    'The password for your MT5 trading account.\n\nThis is provided by your broker when you open the account.\n\nFor testing use: "demo123"'
+                  )}
+                />
+              }
+            />
             </View>
             
             <View style={styles.buttonRow}>
@@ -309,9 +337,10 @@ export default function Settings() {
                 style={[styles.connectButton, { flex: mt5Config.connected ? 1 : 2 }]}
                 buttonColor={Colors.primary}
                 textColor={Colors.background}
-                icon={isConnecting ? "sync" : "connection"}
+                icon={isConnecting ? "sync" : "link-variant"}
+                labelStyle={styles.connectButtonText}
               >
-                {isConnecting ? 'Connecting...' : mt5Config.connected ? 'Reconnect' : 'Connect Demo'}
+                {isConnecting ? 'Connecting to Server...' : mt5Config.connected ? 'Reconnect' : 'Connect to MT5'}
               </Button>
               
               {mt5Config.connected && (
@@ -741,6 +770,15 @@ const styles = StyleSheet.create({
   },
   connectButton: {
     marginTop: 4,
+    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  connectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   disconnectButton: {
     marginTop: 4,

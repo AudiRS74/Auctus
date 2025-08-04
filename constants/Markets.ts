@@ -1,128 +1,136 @@
 export interface MarketInfo {
   symbol: string;
   name: string;
-  category: 'Major Forex' | 'Minor Forex' | 'Exotic Forex' | 'Commodities' | 'Indices' | 'Cryptocurrencies';
-  description: string;
+  category: 'Forex' | 'Crypto' | 'Stocks' | 'Indices' | 'Commodities' | 'Bonds';
+  tradingViewSymbol?: string;
 }
 
-export const QUICK_ACCESS_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+export const QUICK_ACCESS_SYMBOLS = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'EURGBP'
+];
+
+export const MARKET_CATEGORIES = [
+  'Forex', 'Crypto', 'Stocks', 'Indices', 'Commodities', 'Bonds'
+];
 
 export const ALL_MARKETS: MarketInfo[] = [
   // Major Forex Pairs
-  { symbol: 'EURUSD', name: 'EUR/USD', category: 'Major Forex', description: 'Euro vs US Dollar' },
-  { symbol: 'GBPUSD', name: 'GBP/USD', category: 'Major Forex', description: 'British Pound vs US Dollar' },
-  { symbol: 'USDJPY', name: 'USD/JPY', category: 'Major Forex', description: 'US Dollar vs Japanese Yen' },
-  { symbol: 'AUDUSD', name: 'AUD/USD', category: 'Major Forex', description: 'Australian Dollar vs US Dollar' },
-  { symbol: 'USDCAD', name: 'USD/CAD', category: 'Major Forex', description: 'US Dollar vs Canadian Dollar' },
-  { symbol: 'USDCHF', name: 'USD/CHF', category: 'Major Forex', description: 'US Dollar vs Swiss Franc' },
-  { symbol: 'NZDUSD', name: 'NZD/USD', category: 'Major Forex', description: 'New Zealand Dollar vs US Dollar' },
-
+  { symbol: 'EURUSD', name: 'Euro / US Dollar', category: 'Forex', tradingViewSymbol: 'FX:EURUSD' },
+  { symbol: 'GBPUSD', name: 'British Pound / US Dollar', category: 'Forex', tradingViewSymbol: 'FX:GBPUSD' },
+  { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:USDJPY' },
+  { symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar', category: 'Forex', tradingViewSymbol: 'FX:AUDUSD' },
+  { symbol: 'USDCAD', name: 'US Dollar / Canadian Dollar', category: 'Forex', tradingViewSymbol: 'FX:USDCAD' },
+  { symbol: 'USDCHF', name: 'US Dollar / Swiss Franc', category: 'Forex', tradingViewSymbol: 'FX:USDCHF' },
+  { symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar', category: 'Forex', tradingViewSymbol: 'FX:NZDUSD' },
+  { symbol: 'EURGBP', name: 'Euro / British Pound', category: 'Forex', tradingViewSymbol: 'FX:EURGBP' },
+  
   // Minor Forex Pairs
-  { symbol: 'EURGBP', name: 'EUR/GBP', category: 'Minor Forex', description: 'Euro vs British Pound' },
-  { symbol: 'EURJPY', name: 'EUR/JPY', category: 'Minor Forex', description: 'Euro vs Japanese Yen' },
-  { symbol: 'EURAUD', name: 'EUR/AUD', category: 'Minor Forex', description: 'Euro vs Australian Dollar' },
-  { symbol: 'EURCAD', name: 'EUR/CAD', category: 'Minor Forex', description: 'Euro vs Canadian Dollar' },
-  { symbol: 'EURCHF', name: 'EUR/CHF', category: 'Minor Forex', description: 'Euro vs Swiss Franc' },
-  { symbol: 'GBPJPY', name: 'GBP/JPY', category: 'Minor Forex', description: 'British Pound vs Japanese Yen' },
-  { symbol: 'GBPAUD', name: 'GBP/AUD', category: 'Minor Forex', description: 'British Pound vs Australian Dollar' },
-  { symbol: 'GBPCAD', name: 'GBP/CAD', category: 'Minor Forex', description: 'British Pound vs Canadian Dollar' },
-  { symbol: 'GBPCHF', name: 'GBP/CHF', category: 'Minor Forex', description: 'British Pound vs Swiss Franc' },
-  { symbol: 'AUDCAD', name: 'AUD/CAD', category: 'Minor Forex', description: 'Australian Dollar vs Canadian Dollar' },
-  { symbol: 'AUDCHF', name: 'AUD/CHF', category: 'Minor Forex', description: 'Australian Dollar vs Swiss Franc' },
-  { symbol: 'AUDJPY', name: 'AUD/JPY', category: 'Minor Forex', description: 'Australian Dollar vs Japanese Yen' },
-  { symbol: 'CADCHF', name: 'CAD/CHF', category: 'Minor Forex', description: 'Canadian Dollar vs Swiss Franc' },
-  { symbol: 'CADJPY', name: 'CAD/JPY', category: 'Minor Forex', description: 'Canadian Dollar vs Japanese Yen' },
-  { symbol: 'CHFJPY', name: 'CHF/JPY', category: 'Minor Forex', description: 'Swiss Franc vs Japanese Yen' },
-  { symbol: 'NZDCAD', name: 'NZD/CAD', category: 'Minor Forex', description: 'New Zealand Dollar vs Canadian Dollar' },
-  { symbol: 'NZDCHF', name: 'NZD/CHF', category: 'Minor Forex', description: 'New Zealand Dollar vs Swiss Franc' },
-  { symbol: 'NZDJPY', name: 'NZD/JPY', category: 'Minor Forex', description: 'New Zealand Dollar vs Japanese Yen' },
-
-  // Exotic Forex Pairs
-  { symbol: 'USDTRY', name: 'USD/TRY', category: 'Exotic Forex', description: 'US Dollar vs Turkish Lira' },
-  { symbol: 'USDZAR', name: 'USD/ZAR', category: 'Exotic Forex', description: 'US Dollar vs South African Rand' },
-  { symbol: 'USDMXN', name: 'USD/MXN', category: 'Exotic Forex', description: 'US Dollar vs Mexican Peso' },
-  { symbol: 'USDSEK', name: 'USD/SEK', category: 'Exotic Forex', description: 'US Dollar vs Swedish Krona' },
-  { symbol: 'USDNOK', name: 'USD/NOK', category: 'Exotic Forex', description: 'US Dollar vs Norwegian Krone' },
-  { symbol: 'USDDKK', name: 'USD/DKK', category: 'Exotic Forex', description: 'US Dollar vs Danish Krone' },
-  { symbol: 'USDPLN', name: 'USD/PLN', category: 'Exotic Forex', description: 'US Dollar vs Polish Zloty' },
-  { symbol: 'USDCZK', name: 'USD/CZK', category: 'Exotic Forex', description: 'US Dollar vs Czech Koruna' },
-  { symbol: 'USDHUF', name: 'USD/HUF', category: 'Exotic Forex', description: 'US Dollar vs Hungarian Forint' },
-  { symbol: 'USDSGD', name: 'USD/SGD', category: 'Exotic Forex', description: 'US Dollar vs Singapore Dollar' },
-  { symbol: 'USDHKD', name: 'USD/HKD', category: 'Exotic Forex', description: 'US Dollar vs Hong Kong Dollar' },
-  { symbol: 'EURTRY', name: 'EUR/TRY', category: 'Exotic Forex', description: 'Euro vs Turkish Lira' },
-  { symbol: 'EURZAR', name: 'EUR/ZAR', category: 'Exotic Forex', description: 'Euro vs South African Rand' },
-  { symbol: 'GBPTRY', name: 'GBP/TRY', category: 'Exotic Forex', description: 'British Pound vs Turkish Lira' },
-
-  // Commodities
-  { symbol: 'XAUUSD', name: 'Gold', category: 'Commodities', description: 'Gold vs US Dollar' },
-  { symbol: 'XAGUSD', name: 'Silver', category: 'Commodities', description: 'Silver vs US Dollar' },
-  { symbol: 'XPTUSD', name: 'Platinum', category: 'Commodities', description: 'Platinum vs US Dollar' },
-  { symbol: 'XPDUSD', name: 'Palladium', category: 'Commodities', description: 'Palladium vs US Dollar' },
-  { symbol: 'XTIUSD', name: 'WTI Oil', category: 'Commodities', description: 'West Texas Intermediate Crude Oil' },
-  { symbol: 'XBRUSD', name: 'Brent Oil', category: 'Commodities', description: 'Brent Crude Oil' },
-  { symbol: 'XNGUSD', name: 'Natural Gas', category: 'Commodities', description: 'Natural Gas' },
-  { symbol: 'COPPER', name: 'Copper', category: 'Commodities', description: 'Copper' },
-  { symbol: 'WHEAT', name: 'Wheat', category: 'Commodities', description: 'Wheat Futures' },
-  { symbol: 'CORN', name: 'Corn', category: 'Commodities', description: 'Corn Futures' },
-  { symbol: 'SOYBEANS', name: 'Soybeans', category: 'Commodities', description: 'Soybeans Futures' },
-  { symbol: 'SUGAR', name: 'Sugar', category: 'Commodities', description: 'Sugar Futures' },
-  { symbol: 'COFFEE', name: 'Coffee', category: 'Commodities', description: 'Coffee Futures' },
-  { symbol: 'COCOA', name: 'Cocoa', category: 'Commodities', description: 'Cocoa Futures' },
-  { symbol: 'COTTON', name: 'Cotton', category: 'Commodities', description: 'Cotton Futures' },
-
-  // Indices
-  { symbol: 'US30', name: 'Dow Jones', category: 'Indices', description: 'Dow Jones Industrial Average' },
-  { symbol: 'US500', name: 'S&P 500', category: 'Indices', description: 'S&P 500 Index' },
-  { symbol: 'US100', name: 'NASDAQ', category: 'Indices', description: 'NASDAQ 100 Index' },
-  { symbol: 'UK100', name: 'FTSE 100', category: 'Indices', description: 'Financial Times Stock Exchange 100' },
-  { symbol: 'GER30', name: 'DAX', category: 'Indices', description: 'German Stock Index DAX 30' },
-  { symbol: 'FRA40', name: 'CAC 40', category: 'Indices', description: 'French Stock Index CAC 40' },
-  { symbol: 'ESP35', name: 'IBEX 35', category: 'Indices', description: 'Spanish Stock Index IBEX 35' },
-  { symbol: 'ITA40', name: 'FTSE MIB', category: 'Indices', description: 'Italian Stock Index FTSE MIB' },
-  { symbol: 'AUS200', name: 'ASX 200', category: 'Indices', description: 'Australian Securities Exchange 200' },
-  { symbol: 'JPN225', name: 'Nikkei 225', category: 'Indices', description: 'Japanese Stock Index Nikkei 225' },
-  { symbol: 'HK50', name: 'Hang Seng', category: 'Indices', description: 'Hong Kong Hang Seng Index' },
-  { symbol: 'EUSTX50', name: 'Euro Stoxx 50', category: 'Indices', description: 'Euro Stoxx 50 Index' },
-  { symbol: 'SUI30', name: 'SMI', category: 'Indices', description: 'Swiss Market Index' },
-  { symbol: 'NED25', name: 'AEX', category: 'Indices', description: 'Amsterdam Exchange Index' },
+  { symbol: 'EURJPY', name: 'Euro / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:EURJPY' },
+  { symbol: 'EURCHF', name: 'Euro / Swiss Franc', category: 'Forex', tradingViewSymbol: 'FX:EURCHF' },
+  { symbol: 'EURAUD', name: 'Euro / Australian Dollar', category: 'Forex', tradingViewSymbol: 'FX:EURAUD' },
+  { symbol: 'EURCAD', name: 'Euro / Canadian Dollar', category: 'Forex', tradingViewSymbol: 'FX:EURCAD' },
+  { symbol: 'GBPJPY', name: 'British Pound / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:GBPJPY' },
+  { symbol: 'GBPCHF', name: 'British Pound / Swiss Franc', category: 'Forex', tradingViewSymbol: 'FX:GBPCHF' },
+  { symbol: 'GBPAUD', name: 'British Pound / Australian Dollar', category: 'Forex', tradingViewSymbol: 'FX:GBPAUD' },
+  { symbol: 'GBPCAD', name: 'British Pound / Canadian Dollar', category: 'Forex', tradingViewSymbol: 'FX:GBPCAD' },
+  { symbol: 'CHFJPY', name: 'Swiss Franc / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:CHFJPY' },
+  { symbol: 'CADJPY', name: 'Canadian Dollar / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:CADJPY' },
+  { symbol: 'AUDJPY', name: 'Australian Dollar / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:AUDJPY' },
+  { symbol: 'NZDJPY', name: 'New Zealand Dollar / Japanese Yen', category: 'Forex', tradingViewSymbol: 'FX:NZDJPY' },
 
   // Cryptocurrencies
-  { symbol: 'BTCUSD', name: 'Bitcoin', category: 'Cryptocurrencies', description: 'Bitcoin vs US Dollar' },
-  { symbol: 'ETHUSD', name: 'Ethereum', category: 'Cryptocurrencies', description: 'Ethereum vs US Dollar' },
-  { symbol: 'LTCUSD', name: 'Litecoin', category: 'Cryptocurrencies', description: 'Litecoin vs US Dollar' },
-  { symbol: 'XRPUSD', name: 'Ripple', category: 'Cryptocurrencies', description: 'Ripple vs US Dollar' },
-  { symbol: 'BCHUSD', name: 'Bitcoin Cash', category: 'Cryptocurrencies', description: 'Bitcoin Cash vs US Dollar' },
-  { symbol: 'ADAUSD', name: 'Cardano', category: 'Cryptocurrencies', description: 'Cardano vs US Dollar' },
-  { symbol: 'DOTUSD', name: 'Polkadot', category: 'Cryptocurrencies', description: 'Polkadot vs US Dollar' },
-  { symbol: 'LINKUSD', name: 'Chainlink', category: 'Cryptocurrencies', description: 'Chainlink vs US Dollar' },
-  { symbol: 'BNBUSD', name: 'Binance Coin', category: 'Cryptocurrencies', description: 'Binance Coin vs US Dollar' },
-  { symbol: 'SOLUSD', name: 'Solana', category: 'Cryptocurrencies', description: 'Solana vs US Dollar' },
-  { symbol: 'MATICUSD', name: 'Polygon', category: 'Cryptocurrencies', description: 'Polygon vs US Dollar' },
-  { symbol: 'AVAXUSD', name: 'Avalanche', category: 'Cryptocurrencies', description: 'Avalanche vs US Dollar' },
+  { symbol: 'BTCUSD', name: 'Bitcoin / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:BTCUSDT' },
+  { symbol: 'ETHUSD', name: 'Ethereum / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:ETHUSDT' },
+  { symbol: 'ADAUSD', name: 'Cardano / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:ADAUSDT' },
+  { symbol: 'DOTUSD', name: 'Polkadot / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:DOTUSDT' },
+  { symbol: 'LINKUSD', name: 'Chainlink / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:LINKUSDT' },
+  { symbol: 'LTCUSD', name: 'Litecoin / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:LTCUSDT' },
+  { symbol: 'BNBUSD', name: 'Binance Coin / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:BNBUSDT' },
+  { symbol: 'XRPUSD', name: 'Ripple / US Dollar', category: 'Crypto', tradingViewSymbol: 'BINANCE:XRPUSDT' },
+
+  // Major Stock Indices
+  { symbol: 'SPX500', name: 'S&P 500 Index', category: 'Indices', tradingViewSymbol: 'SP:SPX' },
+  { symbol: 'US30', name: 'Dow Jones Industrial Average', category: 'Indices', tradingViewSymbol: 'DJ:DJI' },
+  { symbol: 'NAS100', name: 'NASDAQ 100 Index', category: 'Indices', tradingViewSymbol: 'NASDAQ:NDX' },
+  { symbol: 'UK100', name: 'FTSE 100 Index', category: 'Indices', tradingViewSymbol: 'TVC:UKX' },
+  { symbol: 'GER40', name: 'DAX 40 Index', category: 'Indices', tradingViewSymbol: 'TVC:DAX' },
+  { symbol: 'JPN225', name: 'Nikkei 225 Index', category: 'Indices', tradingViewSymbol: 'TVC:NI225' },
+  { symbol: 'AUS200', name: 'ASX 200 Index', category: 'Indices', tradingViewSymbol: 'TVC:AS51' },
+  { symbol: 'FRA40', name: 'CAC 40 Index', category: 'Indices', tradingViewSymbol: 'TVC:CAC' },
+
+  // Popular Stocks
+  { symbol: 'AAPL', name: 'Apple Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:AAPL' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:GOOGL' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', category: 'Stocks', tradingViewSymbol: 'NASDAQ:MSFT' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:AMZN' },
+  { symbol: 'TSLA', name: 'Tesla Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:TSLA' },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', category: 'Stocks', tradingViewSymbol: 'NASDAQ:NVDA' },
+  { symbol: 'META', name: 'Meta Platforms Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:META' },
+  { symbol: 'NFLX', name: 'Netflix Inc.', category: 'Stocks', tradingViewSymbol: 'NASDAQ:NFLX' },
+
+  // Commodities
+  { symbol: 'XAUUSD', name: 'Gold / US Dollar', category: 'Commodities', tradingViewSymbol: 'TVC:GOLD' },
+  { symbol: 'XAGUSD', name: 'Silver / US Dollar', category: 'Commodities', tradingViewSymbol: 'TVC:SILVER' },
+  { symbol: 'USOIL', name: 'US Crude Oil', category: 'Commodities', tradingViewSymbol: 'TVC:USOIL' },
+  { symbol: 'UKOIL', name: 'UK Brent Oil', category: 'Commodities', tradingViewSymbol: 'TVC:UKOIL' },
+  { symbol: 'NATGAS', name: 'Natural Gas', category: 'Commodities', tradingViewSymbol: 'TVC:NATURALGAS' },
+  { symbol: 'COPPER', name: 'Copper', category: 'Commodities', tradingViewSymbol: 'COMEX:HG1!' },
+  { symbol: 'PLATINUM', name: 'Platinum', category: 'Commodities', tradingViewSymbol: 'TVC:PLATINUM' },
+  { symbol: 'PALLADIUM', name: 'Palladium', category: 'Commodities', tradingViewSymbol: 'TVC:PALLADIUM' },
+
+  // Government Bonds
+  { symbol: 'US10Y', name: 'US 10 Year Treasury Note', category: 'Bonds', tradingViewSymbol: 'TVC:TNX' },
+  { symbol: 'US30Y', name: 'US 30 Year Treasury Bond', category: 'Bonds', tradingViewSymbol: 'TVC:TYX' },
+  { symbol: 'UK10Y', name: 'UK 10 Year Gilt', category: 'Bonds', tradingViewSymbol: 'TVC:UK10Y' },
+  { symbol: 'DE10Y', name: 'German 10 Year Bund', category: 'Bonds', tradingViewSymbol: 'TVC:DE10Y' },
+  { symbol: 'JP10Y', name: 'Japan 10 Year Bond', category: 'Bonds', tradingViewSymbol: 'TVC:JP10Y' },
 ];
 
-export const getMarketsByCategory = (category: string): MarketInfo[] => {
-  return ALL_MARKETS.filter(market => market.category === category);
-};
-
+// Search function for markets
 export const searchMarkets = (query: string): MarketInfo[] => {
-  const lowerQuery = query.toLowerCase();
-  return ALL_MARKETS.filter(market =>
-    market.symbol.toLowerCase().includes(lowerQuery) ||
-    market.name.toLowerCase().includes(lowerQuery) ||
-    market.description.toLowerCase().includes(lowerQuery)
+  const searchTerm = query.toLowerCase().trim();
+  if (!searchTerm) return ALL_MARKETS;
+
+  return ALL_MARKETS.filter(market => 
+    market.symbol.toLowerCase().includes(searchTerm) ||
+    market.name.toLowerCase().includes(searchTerm) ||
+    market.category.toLowerCase().includes(searchTerm)
   );
 };
 
+// Get market info by symbol
 export const getMarketInfo = (symbol: string): MarketInfo | undefined => {
   return ALL_MARKETS.find(market => market.symbol === symbol);
 };
 
-export const MARKET_CATEGORIES = [
-  'Major Forex',
-  'Minor Forex', 
-  'Exotic Forex',
-  'Commodities',
-  'Indices',
-  'Cryptocurrencies'
+// Get TradingView symbol for a market
+export const getTradingViewSymbol = (symbol: string): string => {
+  const market = getMarketInfo(symbol);
+  return market?.tradingViewSymbol || `FX:${symbol}`;
+};
+
+// MT5 Server configurations - authentic MT5 servers
+export const MT5_SERVERS = [
+  // Demo Servers
+  { name: 'MetaQuotes-Demo', type: 'demo', region: 'Global' },
+  { name: 'Demo-MetaTrader5', type: 'demo', region: 'Global' },
+  { name: 'MT5-Demo', type: 'demo', region: 'Global' },
+  
+  // Popular Broker Servers (for reference - these would be actual broker servers)
+  { name: 'IC-Markets-Demo', type: 'demo', region: 'Australia' },
+  { name: 'FXTM-Demo', type: 'demo', region: 'Cyprus' },
+  { name: 'XM-Demo', type: 'demo', region: 'Cyprus' },
+  { name: 'Pepperstone-Demo', type: 'demo', region: 'Australia' },
+  { name: 'IG-Demo', type: 'demo', region: 'UK' },
+  { name: 'OANDA-Demo', type: 'demo', region: 'US' },
+  { name: 'FxPro-Demo', type: 'demo', region: 'Cyprus' },
+  { name: 'Admiral-Markets-Demo', type: 'demo', region: 'Estonia' },
+];
+
+// Demo account credentials for testing
+export const DEMO_CREDENTIALS = [
+  { server: 'MetaQuotes-Demo', login: '12345', password: 'demo123' },
+  { server: 'Demo-MetaTrader5', login: '123456', password: 'password' },
+  { server: 'MT5-Demo', login: '1234567', password: 'test123' },
+  { server: 'demo', login: '12345', password: 'demo123' }, // Simple demo for testing
 ];
