@@ -1,14 +1,18 @@
-export interface TradingSignal {
+export interface AutomationSignal {
   id: string;
   symbol: string;
   action: 'BUY' | 'SELL';
   strength: number; // 0-100
-  indicator: string;
-  reason: string;
   timestamp: Date;
-  price?: number;
-  stopLoss?: number;
-  takeProfit?: number;
+  indicators: {
+    rsi?: number;
+    macd?: { signal: number; histogram: number };
+    ma?: number;
+    bb?: { upper: number; lower: number; middle: number };
+    stoch?: number;
+    adx?: number;
+  };
+  reason: string;
 }
 
 export interface AutomationStrategy {
@@ -32,267 +36,218 @@ export interface AutomationStrategy {
 
 class AutomationEngine {
   private isRunning: boolean = false;
-  private signals: TradingSignal[] = [];
-  private strategies: AutomationStrategy[] = [];
-  private monitoringInterval: NodeJS.Timeout | null = null;
+  private signals: AutomationSignal[] = [];
+  private strategiesRunning: Set<string> = new Set();
 
   start(): void {
     this.isRunning = true;
-    console.log('Automation Engine: Started');
+    console.log('Automation engine started');
   }
 
   stop(): void {
     this.isRunning = false;
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
-    }
-    console.log('Automation Engine: Stopped');
-  }
-
-  addSignal(signal: TradingSignal): void {
-    this.signals.unshift(signal);
-    // Keep only last 100 signals
-    if (this.signals.length > 100) {
-      this.signals = this.signals.slice(0, 100);
-    }
-  }
-
-  getSignals(): TradingSignal[] {
-    return [...this.signals];
-  }
-
-  evaluateStrategy(strategy: AutomationStrategy, symbol: string): TradingSignal | null {
-    if (!strategy.isActive || strategy.symbol !== symbol) {
-      return null;
-    }
-
-    try {
-      const signal = this.generateSignalForStrategy(strategy);
-      return signal;
-    } catch (error) {
-      console.error(`Error evaluating strategy ${strategy.name}:`, error);
-      return null;
-    }
-  }
-
-  private generateSignalForStrategy(strategy: AutomationStrategy): TradingSignal | null {
-    // Simulate technical analysis based on strategy indicator
-    const indicators = this.simulateIndicators();
-    let signalStrength = 0;
-    let action: 'BUY' | 'SELL' = 'BUY';
-    let reason = '';
-
-    switch (strategy.indicator) {
-      case 'RSI':
-        if (indicators.rsi < 30) {
-          signalStrength = Math.random() * 40 + 60; // 60-100
-          action = 'BUY';
-          reason = `RSI oversold at ${indicators.rsi.toFixed(1)}`;
-        } else if (indicators.rsi > 70) {
-          signalStrength = Math.random() * 40 + 60; // 60-100
-          action = 'SELL';
-          reason = `RSI overbought at ${indicators.rsi.toFixed(1)}`;
-        }
-        break;
-
-      case 'MACD':
-        if (indicators.macd.signal > 0 && indicators.macd.histogram > indicators.macd.signal) {
-          signalStrength = Math.random() * 35 + 65; // 65-100
-          action = 'BUY';
-          reason = `MACD bullish crossover (${indicators.macd.signal.toFixed(4)})`;
-        } else if (indicators.macd.signal < 0 && indicators.macd.histogram < indicators.macd.signal) {
-          signalStrength = Math.random() * 35 + 65; // 65-100
-          action = 'SELL';
-          reason = `MACD bearish crossover (${indicators.macd.signal.toFixed(4)})`;
-        }
-        break;
-
-      case 'MA':
-        const priceAboveMA = Math.random() > 0.5;
-        if (priceAboveMA) {
-          signalStrength = Math.random() * 30 + 50; // 50-80
-          action = 'BUY';
-          reason = 'Price above Moving Average - uptrend confirmed';
-        } else {
-          signalStrength = Math.random() * 30 + 50; // 50-80
-          action = 'SELL';
-          reason = 'Price below Moving Average - downtrend confirmed';
-        }
-        break;
-
-      case 'BB':
-        const bbPosition = Math.random();
-        if (bbPosition < 0.2) {
-          signalStrength = Math.random() * 25 + 60; // 60-85
-          action = 'BUY';
-          reason = 'Price near Bollinger Band lower bound - bounce expected';
-        } else if (bbPosition > 0.8) {
-          signalStrength = Math.random() * 25 + 60; // 60-85
-          action = 'SELL';
-          reason = 'Price near Bollinger Band upper bound - reversal expected';
-        }
-        break;
-
-      case 'STOCH':
-        const stochK = Math.random() * 100;
-        const stochD = Math.random() * 100;
-        if (stochK < 20 && stochD < 20) {
-          signalStrength = Math.random() * 30 + 55; // 55-85
-          action = 'BUY';
-          reason = `Stochastic oversold (%K: ${stochK.toFixed(1)})`;
-        } else if (stochK > 80 && stochD > 80) {
-          signalStrength = Math.random() * 30 + 55; // 55-85
-          action = 'SELL';
-          reason = `Stochastic overbought (%K: ${stochK.toFixed(1)})`;
-        }
-        break;
-
-      case 'ADX':
-        const adx = Math.random() * 100;
-        const diPlus = Math.random() * 50;
-        const diMinus = Math.random() * 50;
-        if (adx > 25 && diPlus > diMinus) {
-          signalStrength = Math.random() * 25 + 60; // 60-85
-          action = 'BUY';
-          reason = `Strong uptrend detected (ADX: ${adx.toFixed(1)})`;
-        } else if (adx > 25 && diMinus > diPlus) {
-          signalStrength = Math.random() * 25 + 60; // 60-85
-          action = 'SELL';
-          reason = `Strong downtrend detected (ADX: ${adx.toFixed(1)})`;
-        }
-        break;
-    }
-
-    // Apply strategy trade type filter
-    if (strategy.tradeType !== 'BOTH' && strategy.tradeType !== action) {
-      return null;
-    }
-
-    // Only generate signals with sufficient strength
-    if (signalStrength < 55) {
-      return null;
-    }
-
-    return {
-      id: `${strategy.id}_${Date.now()}`,
-      symbol: strategy.symbol,
-      action,
-      strength: Math.round(signalStrength),
-      indicator: strategy.indicator,
-      reason,
-      timestamp: new Date(),
-      stopLoss: strategy.stopLoss,
-      takeProfit: strategy.takeProfit,
-    };
-  }
-
-  private simulateIndicators() {
-    // Simulate realistic technical indicators
-    return {
-      rsi: Math.random() * 100,
-      macd: {
-        signal: (Math.random() - 0.5) * 0.002,
-        histogram: (Math.random() - 0.5) * 0.001,
-      },
-      movingAverage: 1.0800 + (Math.random() - 0.5) * 0.01,
-      bollingerBands: {
-        upper: 1.0900,
-        middle: 1.0850,
-        lower: 1.0800,
-      },
-      stochastic: {
-        k: Math.random() * 100,
-        d: Math.random() * 100,
-      },
-      adx: {
-        adx: Math.random() * 100,
-        diPlus: Math.random() * 50,
-        diMinus: Math.random() * 50,
-      },
-    };
-  }
-
-  // Strategy template generators
-  generateRSIStrategy(symbol: string, name?: string): AutomationStrategy {
-    return {
-      id: `rsi_${Date.now()}`,
-      name: name || `RSI Strategy for ${symbol}`,
-      isActive: true,
-      indicator: 'RSI',
-      symbol,
-      timeframe: '15M',
-      entryCondition: 'RSI < 30 (oversold) or RSI > 70 (overbought)',
-      exitCondition: 'RSI returns to 30-70 range',
-      tradeType: 'BOTH',
-      positionSize: 0.01,
-      stopLoss: 20, // pips
-      takeProfit: 40, // pips
-      createdAt: new Date(),
-      triggeredCount: 0,
-      successRate: 65,
-      totalProfit: 0,
-    };
-  }
-
-  generateMACDStrategy(symbol: string, name?: string): AutomationStrategy {
-    return {
-      id: `macd_${Date.now()}`,
-      name: name || `MACD Strategy for ${symbol}`,
-      isActive: true,
-      indicator: 'MACD',
-      symbol,
-      timeframe: '1H',
-      entryCondition: 'MACD signal line crossover',
-      exitCondition: 'Opposite MACD crossover or S/L, T/P hit',
-      tradeType: 'BOTH',
-      positionSize: 0.05,
-      stopLoss: 30,
-      takeProfit: 60,
-      createdAt: new Date(),
-      triggeredCount: 0,
-      successRate: 58,
-      totalProfit: 0,
-    };
-  }
-
-  generateMovingAverageStrategy(symbol: string, name?: string): AutomationStrategy {
-    return {
-      id: `ma_${Date.now()}`,
-      name: name || `MA Trend Strategy for ${symbol}`,
-      isActive: true,
-      indicator: 'MA',
-      symbol,
-      timeframe: '4H',
-      entryCondition: 'Price crosses above/below 50-period MA',
-      exitCondition: 'Price crosses back or S/L, T/P hit',
-      tradeType: 'BOTH',
-      positionSize: 0.02,
-      stopLoss: 25,
-      takeProfit: 50,
-      createdAt: new Date(),
-      triggeredCount: 0,
-      successRate: 62,
-      totalProfit: 0,
-    };
-  }
-
-  cleanup(): void {
-    this.stop();
-    this.signals = [];
-    this.strategies = [];
+    this.strategiesRunning.clear();
+    console.log('Automation engine stopped');
   }
 
   isEngineRunning(): boolean {
     return this.isRunning;
   }
 
-  getActiveStrategiesCount(): number {
-    return this.strategies.filter(s => s.isActive).length;
+  evaluateStrategy(strategy: AutomationStrategy, symbol: string): AutomationSignal | null {
+    if (!this.isRunning || !strategy.isActive) {
+      return null;
+    }
+
+    try {
+      // Generate realistic indicators based on strategy type
+      const indicators = this.generateIndicators(symbol, strategy.indicator);
+      const signal = this.analyzeIndicators(strategy, indicators);
+      
+      if (signal) {
+        const automationSignal: AutomationSignal = {
+          id: `signal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          symbol,
+          action: signal.action,
+          strength: signal.strength,
+          timestamp: new Date(),
+          indicators,
+          reason: signal.reason,
+        };
+        
+        return automationSignal;
+      }
+    } catch (error) {
+      console.error(`Error evaluating strategy ${strategy.name}:`, error);
+    }
+
+    return null;
   }
 
-  getTotalSignalsCount(): number {
-    return this.signals.length;
+  private generateIndicators(symbol: string, primaryIndicator: string) {
+    // Generate realistic technical indicator values
+    const indicators: any = {};
+    
+    // RSI (0-100)
+    indicators.rsi = Math.random() * 100;
+    
+    // MACD
+    indicators.macd = {
+      signal: (Math.random() - 0.5) * 0.002,
+      histogram: (Math.random() - 0.5) * 0.001,
+    };
+    
+    // Moving Average (price-like)
+    const basePrice = this.getBasePrice(symbol);
+    indicators.ma = basePrice + (Math.random() - 0.5) * basePrice * 0.02;
+    
+    // Bollinger Bands
+    indicators.bb = {
+      upper: basePrice * 1.01,
+      lower: basePrice * 0.99,
+      middle: basePrice,
+    };
+    
+    // Stochastic (0-100)
+    indicators.stoch = Math.random() * 100;
+    
+    // ADX (0-100)
+    indicators.adx = Math.random() * 100;
+    
+    return indicators;
+  }
+
+  private getBasePrice(symbol: string): number {
+    const basePrices: { [key: string]: number } = {
+      'EURUSD': 1.08500,
+      'GBPUSD': 1.27000,
+      'USDJPY': 148.500,
+      'AUDUSD': 0.66500,
+      'USDCAD': 1.36000,
+      'USDCHF': 0.87500,
+      'NZDUSD': 0.61500,
+    };
+    
+    return basePrices[symbol] || 1.0;
+  }
+
+  private analyzeIndicators(strategy: AutomationStrategy, indicators: any): { action: 'BUY' | 'SELL', strength: number, reason: string } | null {
+    let signalStrength = 0;
+    let action: 'BUY' | 'SELL' = 'BUY';
+    let reasons: string[] = [];
+    
+    switch (strategy.indicator) {
+      case 'RSI':
+        if (indicators.rsi < 30) {
+          signalStrength += 40;
+          action = 'BUY';
+          reasons.push(`RSI oversold at ${indicators.rsi.toFixed(1)}`);
+        } else if (indicators.rsi > 70) {
+          signalStrength += 40;
+          action = 'SELL';
+          reasons.push(`RSI overbought at ${indicators.rsi.toFixed(1)}`);
+        }
+        break;
+        
+      case 'MACD':
+        if (indicators.macd.signal > 0 && indicators.macd.histogram > 0) {
+          signalStrength += 35;
+          action = 'BUY';
+          reasons.push('MACD bullish crossover');
+        } else if (indicators.macd.signal < 0 && indicators.macd.histogram < 0) {
+          signalStrength += 35;
+          action = 'SELL';
+          reasons.push('MACD bearish crossover');
+        }
+        break;
+        
+      case 'BB':
+        const currentPrice = this.getBasePrice(strategy.symbol);
+        if (currentPrice <= indicators.bb.lower) {
+          signalStrength += 30;
+          action = 'BUY';
+          reasons.push('Price at lower Bollinger Band');
+        } else if (currentPrice >= indicators.bb.upper) {
+          signalStrength += 30;
+          action = 'SELL';
+          reasons.push('Price at upper Bollinger Band');
+        }
+        break;
+        
+      case 'STOCH':
+        if (indicators.stoch < 20) {
+          signalStrength += 25;
+          action = 'BUY';
+          reasons.push(`Stochastic oversold at ${indicators.stoch.toFixed(1)}`);
+        } else if (indicators.stoch > 80) {
+          signalStrength += 25;
+          action = 'SELL';
+          reasons.push(`Stochastic overbought at ${indicators.stoch.toFixed(1)}`);
+        }
+        break;
+        
+      case 'ADX':
+        if (indicators.adx > 25) {
+          signalStrength += 20;
+          // ADX shows trend strength, combine with price action
+          const priceDirection = Math.random() > 0.5 ? 'BUY' : 'SELL';
+          action = priceDirection;
+          reasons.push(`Strong trend detected (ADX: ${indicators.adx.toFixed(1)})`);
+        }
+        break;
+        
+      default:
+        return null;
+    }
+    
+    // Add some randomness to make signals more realistic
+    const randomFactor = Math.random() * 20;
+    signalStrength += randomFactor;
+    
+    // Ensure signal strength doesn't exceed 100
+    signalStrength = Math.min(100, signalStrength);
+    
+    // Only return signal if strength is above threshold
+    if (signalStrength >= 50) {
+      // Check if strategy allows this trade type
+      if (strategy.tradeType !== 'BOTH' && strategy.tradeType !== action) {
+        return null;
+      }
+      
+      return {
+        action,
+        strength: signalStrength,
+        reason: reasons.join(', ') || `${strategy.indicator} signal detected`,
+      };
+    }
+    
+    return null;
+  }
+
+  addSignal(signal: AutomationSignal): void {
+    this.signals.unshift(signal);
+    
+    // Keep only last 100 signals
+    if (this.signals.length > 100) {
+      this.signals = this.signals.slice(0, 100);
+    }
+  }
+
+  getSignals(): AutomationSignal[] {
+    return [...this.signals];
+  }
+
+  getSignalsBySymbol(symbol: string): AutomationSignal[] {
+    return this.signals.filter(signal => signal.symbol === symbol);
+  }
+
+  clearSignals(): void {
+    this.signals = [];
+  }
+
+  cleanup(): void {
+    this.stop();
+    this.signals = [];
   }
 }
 

@@ -1,20 +1,21 @@
 import React, { createContext, ReactNode, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleAuth } from '../services/googleAuth';
 
 interface User {
   id: string;
   email: string;
   name: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,109 +25,118 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing user session
-    checkStoredUser();
+    // Auto-login for demo - check if user data exists in storage
+    loadUserFromStorage();
   }, []);
 
-  const checkStoredUser = async () => {
+  const loadUserFromStorage = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      const userData = await AsyncStorage.getItem('demoUser');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } else {
+        // Set default demo user
+        const demoUser: User = {
+          id: 'demo-user-001',
+          email: 'demo@trader.com',
+          name: 'Demo Trader',
+          avatar: undefined
+        };
+        setUser(demoUser);
+        await AsyncStorage.setItem('demoUser', JSON.stringify(demoUser));
       }
     } catch (error) {
-      console.error('Error checking stored user:', error);
+      console.error('Error loading user from storage:', error);
+      // Set default demo user if storage fails
+      const demoUser: User = {
+        id: 'demo-user-001',
+        email: 'demo@trader.com',
+        name: 'Demo Trader',
+        avatar: undefined
+      };
+      setUser(demoUser);
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate authentication
+      // Demo login - simulate authentication
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // For demo purposes, accept any email/password
-      const userData: User = {
-        id: '1',
+      const user: User = {
+        id: `user-${Date.now()}`,
         email,
         name: email.split('@')[0],
+        avatar: undefined
       };
       
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      setUser(user);
+      await AsyncStorage.setItem('demoUser', JSON.stringify(user));
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name: string) => {
     setLoading(true);
     try {
-      // Simulate registration
+      // Demo registration - simulate user creation
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const userData: User = {
-        id: Date.now().toString(),
+      const user: User = {
+        id: `user-${Date.now()}`,
         email,
         name,
+        avatar: undefined
       };
       
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      setUser(user);
+      await AsyncStorage.setItem('demoUser', JSON.stringify(user));
     } catch (error) {
+      console.error('Registration error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-    const signInWithGoogle = async () => {
-    setLoading(true);
+  const logout = async () => {
     try {
-      const result = await GoogleAuth.signIn();
-      
-      if (result.success && result.user) {
-        const userData: User = {
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-        };
-        
-        await AsyncStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-      } else {
-        throw new Error(result.error || 'Google authentication failed');
-      }
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signOut = async () => {
-    setLoading(true);
-    try {
-      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('demoUser');
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
-    } finally {
-      setLoading(false);
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      await AsyncStorage.setItem('demoUser', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
     }
   };
 
   const value = {
     user,
     loading,
-    signIn,
-    signUp,
-    signInWithGoogle,
-    signOut,
+    isAuthenticated: !!user,
+    login,
+    register,
+    logout,
+    updateProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

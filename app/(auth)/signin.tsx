@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput, Button, Card } from 'react-native-paper';
+import { Button, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,242 +10,207 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function SignIn() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { login, loading } = useAuth();
+  const [email, setEmail] = useState('demo@trader.com');
+  const [password, setPassword] = useState('demo123');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      const message = 'Please enter both email and password';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Error', message);
-      }
-      return;
-    }
+  // Cross-platform alert state
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onOk?: () => void;
+  }>({ visible: false, title: '', message: '' });
 
-    setLoading(true);
-    try {
-      await signIn(email, password);
-      router.replace('/(tabs)');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sign in failed';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Error', message);
-      }
-    } finally {
-      setLoading(false);
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    if (Platform.OS === 'web') {
+      setAlertConfig({ visible: true, title, message, onOk });
+    } else {
+      const Alert = require('react-native').Alert;
+      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      showAlert('Missing Information', 'Please enter both email and password');
+      return;
+    }
+
     try {
-      await signInWithGoogle();
+      await login(email, password);
       router.replace('/(tabs)');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Google sign in failed';
-      if (Platform.OS === 'web') {
-        alert(message);
-      } else {
-        Alert.alert('Error', message);
-      }
-    } finally {
-      setLoading(false);
+      const message = error instanceof Error ? error.message : 'Sign in failed';
+      showAlert('Sign In Failed', message);
     }
   };
 
   return (
-    <LinearGradient
-      colors={[Colors.background, Colors.surface]}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={Gradients.header}
+        style={styles.gradient}
+      >
+        <View style={styles.header}>
+          <Button
+            mode="text"
+            onPress={() => router.back()}
+            textColor={Colors.textSecondary}
+            icon="arrow-back"
+            labelStyle={styles.backButtonText}
+          >
+            Back
+          </Button>
+        </View>
+
         <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <MaterialIcons name="trending-up" size={48} color={Colors.primary} />
-            </View>
-            <Text style={styles.appName}>Auctus</Text>
-            <Text style={styles.tagline}>Professional Trading Platform</Text>
+          <View style={styles.titleSection}>
+            <MaterialIcons name="login" size={48} color={Colors.primary} />
+            <Text style={styles.title}>Sign In</Text>
+            <Text style={styles.subtitle}>Welcome back to TradingPro</Text>
           </View>
 
-          {/* Sign In Form */}
-          <Card style={styles.card}>
-            <LinearGradient
-              colors={[Colors.surface, Colors.cardElevated]}
-              style={styles.cardGradient}
-            >
-              <View style={styles.formHeader}>
-                <Text style={styles.formTitle}>Welcome Back</Text>
-                <Text style={styles.formSubtitle}>Sign in to your trading account</Text>
-              </View>
-              
-              <View style={styles.form}>
-                <TextInput
-                  label="Email Address"
-                  value={email}
-                  onChangeText={setEmail}
-                  mode="outlined"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.input}
-                  theme={{
-                    colors: {
-                      primary: Colors.primary,
-                      onSurface: Colors.textPrimary,
-                      outline: Colors.border,
-                      surface: Colors.inputBackground,
-                    }
-                  }}
-                  textColor={Colors.textPrimary}
-                  left={<TextInput.Icon icon="email" iconColor={Colors.textMuted} />}
-                />
-                
-                <TextInput
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  mode="outlined"
-                  secureTextEntry
-                  style={styles.input}
-                  theme={{
-                    colors: {
-                      primary: Colors.primary,
-                      onSurface: Colors.textPrimary,
-                      outline: Colors.border,
-                      surface: Colors.inputBackground,
-                    }
-                  }}
-                  textColor={Colors.textPrimary}
-                  left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
-                />
-                
-                <Button
-                  mode="contained"
-                  onPress={handleSignIn}
-                  loading={loading}
-                  disabled={loading}
-                  style={styles.primaryButton}
-                  buttonColor={Colors.primary}
-                  textColor={Colors.background}
-                  labelStyle={styles.buttonLabel}
-                >
-                  Sign In
-                </Button>
-                
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>OR</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-                
-                <Button
-                  mode="outlined"
-                  onPress={handleGoogleSignIn}
-                  loading={loading}
-                  disabled={loading}
-                  style={styles.googleButton}
-                  textColor={Colors.textPrimary}
-                  labelStyle={styles.buttonLabel}
-                  icon="google"
-                >
-                  Continue with Google
-                </Button>
-                
-                <Button
-                  mode="text"
-                  onPress={() => router.push('/(auth)/signup')}
-                  disabled={loading}
-                  style={styles.linkButton}
-                  textColor={Colors.primary}
-                  labelStyle={styles.linkButtonLabel}
-                >
-                  Don't have an account? Sign Up
-                </Button>
-              </View>
-            </LinearGradient>
-          </Card>
+          <View style={styles.form}>
+            <TextInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              mode="outlined"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.input}
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="email" iconColor={Colors.textMuted} />}
+            />
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Secure trading platform with advanced analytics
-            </Text>
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              mode="outlined"
+              secureTextEntry={!showPassword}
+              style={styles.input}
+              theme={{
+                colors: {
+                  primary: Colors.primary,
+                  onSurface: Colors.textPrimary,
+                  outline: Colors.border,
+                  surface: Colors.inputBackground,
+                }
+              }}
+              textColor={Colors.textPrimary}
+              left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
+              right={
+                <TextInput.Icon 
+                  icon={showPassword ? "eye-off" : "eye"} 
+                  iconColor={Colors.textMuted}
+                  onPress={() => setShowPassword(!showPassword)}
+                />
+              }
+            />
+
+            <Button
+              mode="contained"
+              onPress={handleSignIn}
+              loading={loading}
+              disabled={loading}
+              style={styles.signInButton}
+              buttonColor={Colors.primary}
+              textColor={Colors.background}
+              icon="login"
+              labelStyle={styles.buttonText}
+            >
+              Sign In
+            </Button>
+
+            <Button
+              mode="text"
+              onPress={() => router.push('/(auth)/signup')}
+              textColor={Colors.textSecondary}
+              labelStyle={styles.linkText}
+            >
+              Don't have an account? Sign Up
+            </Button>
+
+            <Button
+              mode="outlined"
+              onPress={() => router.replace('/(tabs)')}
+              style={styles.demoButton}
+              textColor={Colors.secondary}
+              icon="play-arrow"
+              labelStyle={styles.buttonText}
+            >
+              Continue as Demo User
+            </Button>
           </View>
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+
+        {/* Cross-platform Alert Modal */}
+        {Platform.OS === 'web' && (
+          <Modal visible={alertConfig.visible} transparent animationType="fade">
+            <View style={styles.alertOverlay}>
+              <View style={styles.alertContainer}>
+                <Text style={styles.alertTitle}>{alertConfig.title}</Text>
+                <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+                <TouchableOpacity
+                  style={styles.alertButton}
+                  onPress={() => {
+                    alertConfig.onOk?.();
+                    setAlertConfig(prev => ({ ...prev, visible: false }));
+                  }}
+                >
+                  <Text style={styles.alertButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
-  safeArea: {
+  gradient: {
     flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  backButtonText: {
+    ...Typography.body2,
   },
   content: {
     flex: 1,
+    paddingHorizontal: 32,
     justifyContent: 'center',
-    paddingHorizontal: 24,
   },
-  header: {
+  titleSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  appName: {
-    ...Typography.h2,
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-  tagline: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  card: {
-    borderRadius: 20,
-    elevation: 12,
-    shadowColor: Colors.background,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
-  cardGradient: {
-    borderRadius: 20,
-    padding: 32,
-  },
-  formHeader: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  formTitle: {
+  title: {
     ...Typography.h3,
     color: Colors.textPrimary,
+    marginTop: 16,
     marginBottom: 8,
   },
-  formSubtitle: {
+  subtitle: {
     ...Typography.body2,
     color: Colors.textSecondary,
     textAlign: 'center',
@@ -256,53 +221,66 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: Colors.inputBackground,
   },
-  primaryButton: {
+  signInButton: {
     borderRadius: 12,
     paddingVertical: 4,
-    marginTop: 8,
-    elevation: 4,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    marginTop: 16,
   },
-  buttonLabel: {
+  demoButton: {
+    borderRadius: 12,
+    borderColor: Colors.secondary,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  buttonText: {
     ...Typography.button,
     fontSize: 16,
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    paddingHorizontal: 16,
-  },
-  googleButton: {
-    borderColor: Colors.border,
-    borderRadius: 12,
-    paddingVertical: 4,
-  },
-  linkButton: {
-    marginTop: 16,
-  },
-  linkButtonLabel: {
+  linkText: {
     ...Typography.body2,
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  footerText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
     textAlign: 'center',
+  },
+  // Cross-platform alert styles
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alertContainer: {
+    backgroundColor: Colors.surface,
+    padding: 24,
+    borderRadius: 12,
+    minWidth: 300,
+    maxWidth: '90%',
+  },
+  alertTitle: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  alertButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    alignSelf: 'center',
+    minWidth: 80,
+  },
+  alertButtonText: {
+    ...Typography.body2,
+    color: Colors.background,
+    fontWeight: '500',
   },
 });

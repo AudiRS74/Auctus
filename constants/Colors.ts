@@ -1,56 +1,61 @@
 export const Colors = {
-  // Primary dark theme colors
-  background: '#0A0E1A',
-  surface: '#151B2C',
-  surfaceElevated: '#1E2A3E',
-  
   // Primary brand colors
-  primary: '#00D2FF',
-  primaryVariant: '#0099CC',
-  secondary: '#00FF88',
-  accent: '#FFD700',
+  primary: '#007AFF',
+  secondary: '#5AC8FA',
+  accent: '#FF9500',
+  
+  // Background colors
+  background: '#0A0E1A',
+  surface: '#1A1F2E',
+  cardElevated: '#242B3D',
+  inputBackground: '#2A3441',
   
   // Text colors
   textPrimary: '#FFFFFF',
   textSecondary: '#B8C5D6',
-  textMuted: '#6B7C8E',
+  textMuted: '#6B7280',
   
   // Trading colors
   bullish: '#00FF88',
   bearish: '#FF4757',
-  warning: '#FFD700',
-  neutral: '#6B7C8E',
   
-  // Status colors
-  success: '#00FF88',
-  error: '#FF4757',
-  info: '#00D2FF',
-  
-  // Border and divider colors
+  // UI element colors
   border: '#2A3441',
-  divider: '#1E2A3E',
+  divider: '#374151',
+  error: '#FF4757',
+  warning: '#FF9500',
+  success: '#00FF88',
+  info: '#5AC8FA',
   
-  // Card and component backgrounds
-  cardBackground: '#151B2C',
-  cardElevated: '#1E2A3E',
-  
-  // Transparent overlays
-  overlay: 'rgba(10, 14, 26, 0.9)',
-  overlayLight: 'rgba(10, 14, 26, 0.7)',
-  
-  // Gradient colors
-  gradientStart: '#0A0E1A',
-  gradientEnd: '#151B2C',
-  
-  // Input and form colors
-  inputBackground: '#1E2A3E',
-  inputBorder: '#2A3441',
-  inputFocused: '#00D2FF',
+  // Chart colors
+  chartGreen: '#00FF88',
+  chartRed: '#FF4757',
+  chartBlue: '#5AC8FA',
+  chartYellow: '#FFD700',
+  chartPurple: '#AF52DE',
 };
 
 export const Gradients = {
-  primary: ['#00D2FF', '#0099CC'],
-  secondary: ['#00FF88', '#00CC6A'],
-  surface: ['#151B2C', '#1E2A3E'],
-  header: ['#0A0E1A', '#151B2C'],
+  header: [Colors.primary + '40', Colors.background],
+  card: [Colors.surface, Colors.cardElevated],
+  button: [Colors.primary, Colors.secondary],
+  bullish: [Colors.bullish + '20', Colors.surface],
+  bearish: [Colors.bearish + '20', Colors.surface],
+};
+
+// Theme variations for different contexts
+export const DarkTheme = {
+  ...Colors,
+  background: '#0A0E1A',
+  surface: '#1A1F2E',
+  textPrimary: '#FFFFFF',
+};
+
+export const LightTheme = {
+  ...Colors,
+  background: '#FFFFFF',
+  surface: '#F8F9FA',
+  textPrimary: '#1A1F2E',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
 };

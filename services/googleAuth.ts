@@ -1,72 +1,72 @@
-import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+// Google Authentication Service
+// This is a placeholder implementation for demo purposes
 
-interface GoogleAuthResult {
-  success: boolean;
-  user?: {
+export interface GoogleAuthResult {
+  user: {
     id: string;
     email: string;
     name: string;
-    picture?: string;
+    avatar?: string;
   };
-  error?: string;
+  tokens: {
+    accessToken: string;
+    refreshToken?: string;
+  };
 }
 
-// Mock Google OAuth implementation for demo purposes
-export const GoogleAuth = {
-  async signIn(): Promise<GoogleAuthResult> {
-    try {
-      if (Platform.OS === 'web') {
-        // Simulate web OAuth flow
-        const result = await this.simulateWebOAuth();
-        return result;
-      } else {
-        // Simulate mobile OAuth flow
-        const result = await WebBrowser.openAuthSessionAsync(
-          'https://accounts.google.com/oauth/authorize',
-          'https://your-app.com/auth/callback'
-        );
-        
-        if (result.type === 'success') {
-          return {
-            success: true,
-            user: {
-              id: 'google_' + Date.now(),
-              email: 'demo@gmail.com',
-              name: 'Demo User',
-              picture: 'https://via.placeholder.com/150'
-            }
-          };
-        } else {
-          return {
-            success: false,
-            error: 'Authentication cancelled'
-          };
-        }
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Authentication failed'
-      };
-    }
-  },
+class GoogleAuthService {
+  private isConfigured: boolean = false;
 
-  async simulateWebOAuth(): Promise<GoogleAuthResult> {
-    // Simulate OAuth popup and user consent
-    return new Promise((resolve) => {
+  async configure(): Promise<void> {
+    // Configure Google Sign-In
+    // In a real implementation, this would configure the Google Sign-In SDK
+    this.isConfigured = true;
+  }
+
+  async signIn(): Promise<GoogleAuthResult> {
+    if (!this.isConfigured) {
+      await this.configure();
+    }
+
+    // Demo implementation - simulate Google sign-in
+    return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // Simulate successful authentication
-        resolve({
-          success: true,
+        // Simulate successful Google sign-in
+        const result: GoogleAuthResult = {
           user: {
-            id: 'google_' + Date.now(),
-            email: 'demo@gmail.com',
-            name: 'Demo User',
-            picture: 'https://via.placeholder.com/150'
-          }
-        });
+            id: 'google_user_' + Date.now(),
+            email: 'demo.user@gmail.com',
+            name: 'Demo Google User',
+            avatar: undefined,
+          },
+          tokens: {
+            accessToken: 'demo_access_token_' + Date.now(),
+            refreshToken: 'demo_refresh_token_' + Date.now(),
+          },
+        };
+        resolve(result);
       }, 1500);
     });
   }
-};
+
+  async signOut(): Promise<void> {
+    // Sign out from Google
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 500);
+    });
+  }
+
+  async isSignedIn(): Promise<boolean> {
+    // Check if user is signed in with Google
+    return false; // Always false for demo
+  }
+
+  async getCurrentUser(): Promise<GoogleAuthResult['user'] | null> {
+    // Get current Google user
+    return null; // Always null for demo
+  }
+}
+
+export const googleAuthService = new GoogleAuthService();

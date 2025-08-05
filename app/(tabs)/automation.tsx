@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, TextInput, Chip, Switch, Divider, ProgressBar } from 'react-native-paper';
+import { Card, Button, TextInput, Chip, FAB, Switch, Divider } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTrading } from '../../hooks/useTrading';
@@ -29,84 +29,36 @@ interface AutomationStrategy {
 
 export default function Automation() {
   const { 
-    automationRules,
+    automationRules, 
+    automationStrategies, 
     automationStatus,
-    startAutomation,
-    stopAutomation,
+    addAutomationRule,
     toggleAutomationRule,
     deleteAutomationRule,
-    addAutomationRule,
-    mt5Config
+    addAutomationStrategy,
+    toggleAutomationStrategy,
+    deleteAutomationStrategy,
+    startAutomation,
+    stopAutomation,
   } = useTrading();
 
-  const [strategies, setStrategies] = useState<AutomationStrategy[]>([
-    {
-      id: '1',
-      name: 'RSI Reversal Strategy',
-      isActive: true,
-      indicator: 'RSI',
-      symbol: 'EURUSD',
-      timeframe: '1H',
-      entryCondition: 'RSI < 30 (Oversold)',
-      exitCondition: 'RSI > 70 (Overbought)',
-      tradeType: 'BUY',
-      positionSize: 0.1,
-      stopLoss: 50,
-      takeProfit: 100,
-      createdAt: new Date(Date.now() - 86400000),
-      triggeredCount: 8,
-      successRate: 75.0,
-      totalProfit: 234.50,
-    },
-    {
-      id: '2',
-      name: 'MACD Momentum',
-      isActive: false,
-      indicator: 'MACD',
-      symbol: 'GBPUSD',
-      timeframe: '4H',
-      entryCondition: 'MACD Signal Cross Above',
-      exitCondition: 'MACD Signal Cross Below',
-      tradeType: 'BOTH',
-      positionSize: 0.2,
-      stopLoss: 75,
-      takeProfit: 150,
-      createdAt: new Date(Date.now() - 172800000),
-      triggeredCount: 5,
-      successRate: 60.0,
-      totalProfit: 89.25,
-    },
-    {
-      id: '3',
-      name: 'Moving Average Crossover',
-      isActive: true,
-      indicator: 'MA',
-      symbol: 'USDJPY',
-      timeframe: '15M',
-      entryCondition: 'Fast MA > Slow MA',
-      exitCondition: 'Fast MA < Slow MA',
-      tradeType: 'BOTH',
-      positionSize: 0.15,
-      stopLoss: 30,
-      takeProfit: 60,
-      createdAt: new Date(Date.now() - 259200000),
-      triggeredCount: 12,
-      successRate: 66.7,
-      totalProfit: 156.75,
-    },
-  ]);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [newRuleName, setNewRuleName] = useState('');
+  const [newRuleDescription, setNewRuleDescription] = useState('');
 
-  // New strategy form state
-  const [showNewStrategy, setShowNewStrategy] = useState(false);
-  const [newStrategy, setNewStrategy] = useState({
+  // Strategy form state
+  const [strategyForm, setStrategyForm] = useState({
     name: '',
-    indicator: 'RSI' as const,
+    indicator: 'RSI' as AutomationStrategy['indicator'],
     symbol: 'EURUSD',
-    timeframe: '1H',
-    tradeType: 'BUY' as const,
-    positionSize: '0.1',
-    stopLoss: '',
-    takeProfit: '',
+    timeframe: '15',
+    entryCondition: '',
+    exitCondition: '',
+    tradeType: 'BOTH' as AutomationStrategy['tradeType'],
+    positionSize: 0.01,
+    stopLoss: undefined as number | undefined,
+    takeProfit: undefined as number | undefined,
   });
 
   // Cross-platform alert state
@@ -115,8 +67,6 @@ export default function Automation() {
     title: string;
     message: string;
     onOk?: () => void;
-    onCancel?: () => void;
-    showCancel?: boolean;
   }>({ visible: false, title: '', message: '' });
 
   const showAlert = (title: string, message: string, onOk?: () => void) => {
@@ -128,144 +78,78 @@ export default function Automation() {
     }
   };
 
-  const showConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
-    if (Platform.OS === 'web') {
-      setAlertConfig({ 
-        visible: true, 
-        title, 
-        message, 
-        onOk: onConfirm, 
-        onCancel,
-        showCancel: true 
-      });
-    } else {
-      const Alert = require('react-native').Alert;
-      Alert.alert(title, message, [
-        { text: 'Cancel', style: 'cancel', onPress: onCancel },
-        { text: 'OK', onPress: onConfirm }
-      ]);
-    }
-  };
-
-  const handleStartAutomation = () => {
-    if (!mt5Config.connected) {
-      showAlert('MT5 Not Connected', 'Please connect to MT5 in Settings before starting automation.');
+  const handleAddRule = () => {
+    if (!newRuleName.trim()) {
+      showAlert('Invalid Input', 'Please enter a rule name');
       return;
     }
 
-    const activeStrategies = strategies.filter(s => s.isActive);
-    if (activeStrategies.length === 0) {
-      showAlert('No Active Strategies', 'Please enable at least one strategy before starting automation.');
+    addAutomationRule(newRuleName.trim(), newRuleDescription.trim());
+    setNewRuleName('');
+    setNewRuleDescription('');
+    setShowRuleModal(false);
+    showAlert('Success', 'Automation rule created successfully');
+  };
+
+  const handleAddStrategy = () => {
+    if (!strategyForm.name.trim()) {
+      showAlert('Invalid Input', 'Please enter a strategy name');
       return;
     }
 
-    showConfirm(
-      'Start Automation',
-      `Start automated trading with ${activeStrategies.length} active strategies? This will begin executing trades automatically.`,
-      () => {
-        startAutomation();
-        showAlert('Automation Started', 'Trading automation is now running. Monitor your strategies in the real-time section.');
-      }
-    );
-  };
-
-  const handleStopAutomation = () => {
-    showConfirm(
-      'Stop Automation',
-      'Are you sure you want to stop automated trading? Current positions will remain open.',
-      () => {
-        stopAutomation();
-        showAlert('Automation Stopped', 'Trading automation has been stopped successfully.');
-      }
-    );
-  };
-
-  const toggleStrategy = (strategyId: string) => {
-    setStrategies(prev =>
-      prev.map(strategy =>
-        strategy.id === strategyId ? { ...strategy, isActive: !strategy.isActive } : strategy
-      )
-    );
-  };
-
-  const deleteStrategy = (strategyId: string) => {
-    const strategy = strategies.find(s => s.id === strategyId);
-    if (!strategy) return;
-
-    showConfirm(
-      'Delete Strategy',
-      `Are you sure you want to delete "${strategy.name}"? This action cannot be undone.`,
-      () => {
-        setStrategies(prev => prev.filter(s => s.id !== strategyId));
-        showAlert('Strategy Deleted', 'The strategy has been removed successfully.');
-      }
-    );
-  };
-
-  const handleCreateStrategy = () => {
-    if (!newStrategy.name.trim()) {
-      showAlert('Validation Error', 'Please enter a strategy name.');
+    if (!strategyForm.entryCondition.trim()) {
+      showAlert('Invalid Input', 'Please enter entry condition');
       return;
     }
 
-    const positionSize = parseFloat(newStrategy.positionSize);
-    if (isNaN(positionSize) || positionSize <= 0 || positionSize > 10) {
-      showAlert('Validation Error', 'Position size must be between 0.01 and 10.00');
+    if (!strategyForm.exitCondition.trim()) {
+      showAlert('Invalid Input', 'Please enter exit condition');
       return;
     }
 
-    const strategy: AutomationStrategy = {
+    const newStrategy: AutomationStrategy = {
       id: Date.now().toString(),
-      name: newStrategy.name.trim(),
+      ...strategyForm,
       isActive: true,
-      indicator: newStrategy.indicator,
-      symbol: newStrategy.symbol,
-      timeframe: newStrategy.timeframe,
-      entryCondition: `${newStrategy.indicator} Signal Entry`,
-      exitCondition: `${newStrategy.indicator} Signal Exit`,
-      tradeType: newStrategy.tradeType,
-      positionSize: positionSize,
-      stopLoss: newStrategy.stopLoss ? parseFloat(newStrategy.stopLoss) : undefined,
-      takeProfit: newStrategy.takeProfit ? parseFloat(newStrategy.takeProfit) : undefined,
       createdAt: new Date(),
       triggeredCount: 0,
-      successRate: 0,
+      successRate: Math.random() * 30 + 60, // Random initial success rate
       totalProfit: 0,
     };
 
-    setStrategies(prev => [strategy, ...prev]);
-    setShowNewStrategy(false);
-    setNewStrategy({
+    addAutomationStrategy(newStrategy);
+
+    // Reset form
+    setStrategyForm({
       name: '',
       indicator: 'RSI',
       symbol: 'EURUSD',
-      timeframe: '1H',
-      tradeType: 'BUY',
-      positionSize: '0.1',
-      stopLoss: '',
-      takeProfit: '',
+      timeframe: '15',
+      entryCondition: '',
+      exitCondition: '',
+      tradeType: 'BOTH',
+      positionSize: 0.01,
+      stopLoss: undefined,
+      takeProfit: undefined,
     });
 
-    showAlert('Strategy Created', 'New automation strategy has been created and activated.');
+    setShowStrategyModal(false);
+    showAlert('Success', 'Automation strategy created successfully');
   };
 
-  const getIndicatorColor = (indicator: string) => {
-    const colors: { [key: string]: string } = {
-      RSI: Colors.primary,
-      MACD: Colors.secondary,
-      MA: Colors.accent,
-      BB: Colors.bullish,
-      STOCH: Colors.bearish,
-      ADX: '#FF9500',
-    };
-    return colors[indicator] || Colors.primary;
+  const handleToggleAutomation = () => {
+    if (automationStatus.isRunning) {
+      stopAutomation();
+      showAlert('Automation Stopped', 'All automation strategies have been stopped');
+    } else {
+      if (automationStatus.activeStrategies === 0) {
+        showAlert('No Active Strategies', 'Please create and activate at least one strategy before starting automation');
+        return;
+      }
+      startAutomation();
+      showAlert('Automation Started', 'Automation engine is now running your active strategies');
+    }
   };
-
-  const activeStrategies = strategies.filter(s => s.isActive);
-  const totalProfit = strategies.reduce((sum, s) => sum + s.totalProfit, 0);
-  const avgSuccessRate = strategies.length > 0 
-    ? strategies.reduce((sum, s) => sum + s.successRate, 0) / strategies.length 
-    : 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -275,431 +159,373 @@ export default function Automation() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Automation</Text>
-            <Text style={styles.subtitle}>Smart trading strategies</Text>
+            <Text style={styles.title}>AI Automation</Text>
+            <Text style={styles.subtitle}>Intelligent trading automation</Text>
           </View>
-          <View style={[styles.automationStatus, { 
-            backgroundColor: automationStatus.isRunning ? Colors.bullish + '20' : Colors.textMuted + '20' 
-          }]}>
-            <MaterialIcons 
-              name={automationStatus.isRunning ? "play-circle-filled" : "pause-circle-filled"} 
-              size={16} 
-              color={automationStatus.isRunning ? Colors.bullish : Colors.textMuted} 
-            />
-            <Text style={[styles.automationStatusText, { 
-              color: automationStatus.isRunning ? Colors.bullish : Colors.textMuted 
-            }]}>
-              {automationStatus.isRunning ? 'RUNNING' : 'STOPPED'}
-            </Text>
-          </View>
+          <MaterialIcons name="smart-toy" size={28} color={Colors.primary} />
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Automation Control */}
-        <Card style={styles.controlCard}>
+        {/* Automation Status */}
+        <Card style={styles.statusCard}>
           <LinearGradient
-            colors={[Colors.primary + '10', Colors.surface]}
-            style={styles.controlGradient}
+            colors={[automationStatus.isRunning ? Colors.bullish + '20' : Colors.bearish + '20', Colors.surface]}
+            style={styles.statusGradient}
           >
-            <View style={styles.controlHeader}>
-              <Text style={styles.controlTitle}>Automation Control</Text>
-              <MaterialIcons name="smart-toy" size={24} color={Colors.primary} />
-            </View>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{activeStrategies.length}</Text>
-                <Text style={styles.statLabel}>Active Strategies</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: totalProfit >= 0 ? Colors.bullish : Colors.bearish }]}>
-                  ${totalProfit.toFixed(2)}
+            <View style={styles.statusHeader}>
+              <View>
+                <Text style={styles.statusTitle}>Automation Engine</Text>
+                <Text style={styles.statusSubtitle}>
+                  {automationStatus.isRunning ? 'Running' : 'Stopped'}
                 </Text>
-                <Text style={styles.statLabel}>Total Profit</Text>
               </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{avgSuccessRate.toFixed(1)}%</Text>
-                <Text style={styles.statLabel}>Avg Success Rate</Text>
-              </View>
+              <Switch
+                value={automationStatus.isRunning}
+                onValueChange={handleToggleAutomation}
+                thumbColor={automationStatus.isRunning ? Colors.bullish : Colors.textMuted}
+                trackColor={{ false: Colors.border, true: Colors.bullish + '40' }}
+              />
             </View>
 
-            <View style={styles.controlButtons}>
-              {!automationStatus.isRunning ? (
-                <Button
-                  mode="contained"
-                  onPress={handleStartAutomation}
-                  style={styles.startButton}
-                  buttonColor={Colors.bullish}
-                  textColor={Colors.background}
-                  icon="play-arrow"
-                >
-                  Start Automation
-                </Button>
-              ) : (
-                <Button
-                  mode="contained"
-                  onPress={handleStopAutomation}
-                  style={styles.stopButton}
-                  buttonColor={Colors.bearish}
-                  textColor={Colors.background}
-                  icon="stop"
-                >
-                  Stop Automation
-                </Button>
-              )}
-
-              <Button
-                mode="outlined"
-                onPress={() => setShowNewStrategy(true)}
-                style={styles.newStrategyButton}
-                textColor={Colors.primary}
-                icon="add"
-              >
-                New Strategy
-              </Button>
+            <View style={styles.statusGrid}>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusValue}>{automationStatus.activeStrategies}</Text>
+                <Text style={styles.statusLabel}>Active Strategies</Text>
+              </View>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusValue}>{automationStatus.totalSignals}</Text>
+                <Text style={styles.statusLabel}>Signals Generated</Text>
+              </View>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusValue}>
+                  {automationStatus.lastUpdate ? automationStatus.lastUpdate.toLocaleTimeString() : '--:--'}
+                </Text>
+                <Text style={styles.statusLabel}>Last Update</Text>
+              </View>
             </View>
           </LinearGradient>
         </Card>
 
-        {/* Connection Status */}
-        {!mt5Config.connected && (
-          <Card style={styles.warningCard}>
-            <Card.Content style={styles.warningContent}>
-              <View style={styles.warningHeader}>
-                <MaterialIcons name="warning" size={24} color={Colors.accent} />
-                <Text style={styles.warningTitle}>MT5 Not Connected</Text>
-              </View>
-              <Text style={styles.warningText}>
-                Connect to MT5 in Settings to enable automated trading. 
-                Strategies will be simulated without live connection.
-              </Text>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Trading Strategies */}
+        {/* Automation Strategies */}
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
+            <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Trading Strategies</Text>
-              <Text style={styles.strategiesCount}>{strategies.length} strategies</Text>
+              <Button
+                mode="text"
+                onPress={() => setShowStrategyModal(true)}
+                textColor={Colors.primary}
+                icon="plus"
+                compact
+              >
+                Add Strategy
+              </Button>
             </View>
 
-            {strategies.length === 0 ? (
+            {automationStrategies.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialIcons name="psychology" size={64} color={Colors.textMuted} />
-                <Text style={styles.emptyStateText}>No strategies configured</Text>
+                <Text style={styles.emptyStateText}>No strategies created</Text>
                 <Text style={styles.emptyStateSubtext}>
-                  Create your first automation strategy to begin
+                  Create your first automated trading strategy to get started
                 </Text>
-                <Button
-                  mode="outlined"
-                  onPress={() => setShowNewStrategy(true)}
-                  style={styles.emptyStateButton}
-                  textColor={Colors.primary}
-                  icon="add"
-                >
-                  Create Strategy
-                </Button>
               </View>
             ) : (
-              <View style={styles.strategiesContainer}>
-                {strategies.map((strategy, index) => (
-                  <View key={strategy.id}>
-                    <View style={styles.strategyCard}>
-                      <View style={styles.strategyHeader}>
-                        <View style={styles.strategyInfo}>
-                          <View style={styles.strategyTitleRow}>
-                            <Text style={styles.strategyName}>{strategy.name}</Text>
-                            <Chip 
-                              style={[styles.indicatorChip, { 
-                                backgroundColor: getIndicatorColor(strategy.indicator) + '20' 
-                              }]}
-                              textStyle={[styles.indicatorChipText, { 
-                                color: getIndicatorColor(strategy.indicator) 
-                              }]}
-                            >
-                              {strategy.indicator}
-                            </Chip>
-                          </View>
-                          <View style={styles.strategyDetails}>
-                            <Text style={styles.strategyDetail}>
-                              {strategy.symbol} • {strategy.timeframe} • {strategy.tradeType}
-                            </Text>
-                            <Text style={styles.strategyCondition}>
-                              Entry: {strategy.entryCondition}
-                            </Text>
-                          </View>
+              <FlatList
+                data={automationStrategies}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <View style={styles.strategyItem}>
+                    <View style={styles.strategyHeader}>
+                      <View style={styles.strategyInfo}>
+                        <Text style={styles.strategyName}>{item.name}</Text>
+                        <View style={styles.strategyTags}>
+                          <Chip
+                            style={styles.indicatorChip}
+                            textStyle={styles.indicatorChipText}
+                          >
+                            {item.indicator}
+                          </Chip>
+                          <Chip
+                            style={styles.symbolChip}
+                            textStyle={styles.symbolChipText}
+                          >
+                            {item.symbol}
+                          </Chip>
+                          <Chip
+                            style={styles.timeframeChip}
+                            textStyle={styles.timeframeChipText}
+                          >
+                            {item.timeframe}M
+                          </Chip>
                         </View>
-                        <Switch
-                          value={strategy.isActive}
-                          onValueChange={() => toggleStrategy(strategy.id)}
-                          thumbColor={strategy.isActive ? Colors.bullish : Colors.textMuted}
-                          trackColor={{
-                            false: Colors.border,
-                            true: Colors.bullish + '40'
-                          }}
-                        />
                       </View>
+                      <Switch
+                        value={item.isActive}
+                        onValueChange={() => toggleAutomationStrategy(item.id)}
+                        thumbColor={item.isActive ? Colors.bullish : Colors.textMuted}
+                        trackColor={{ false: Colors.border, true: Colors.bullish + '40' }}
+                      />
+                    </View>
 
-                      <View style={styles.strategyStats}>
-                        <View style={styles.statRow}>
-                          <View style={styles.strategyStat}>
-                            <Text style={styles.strategyStatValue}>{strategy.triggeredCount}</Text>
-                            <Text style={styles.strategyStatLabel}>Triggers</Text>
-                          </View>
-                          <View style={styles.strategyStat}>
-                            <Text style={[styles.strategyStatValue, { 
-                              color: strategy.successRate >= 60 ? Colors.bullish : strategy.successRate >= 40 ? Colors.primary : Colors.bearish 
-                            }]}>
-                              {strategy.successRate.toFixed(1)}%
-                            </Text>
-                            <Text style={styles.strategyStatLabel}>Success</Text>
-                          </View>
-                          <View style={styles.strategyStat}>
-                            <Text style={[styles.strategyStatValue, { 
-                              color: strategy.totalProfit >= 0 ? Colors.bullish : Colors.bearish 
-                            }]}>
-                              ${strategy.totalProfit.toFixed(0)}
-                            </Text>
-                            <Text style={styles.strategyStatLabel}>Profit</Text>
-                          </View>
-                        </View>
-
-                        <ProgressBar 
-                          progress={strategy.successRate / 100} 
-                          color={strategy.successRate >= 60 ? Colors.bullish : strategy.successRate >= 40 ? Colors.primary : Colors.bearish}
-                          style={styles.strategyProgressBar}
-                        />
+                    <View style={styles.strategyStats}>
+                      <View style={styles.strategyStat}>
+                        <Text style={styles.strategyStatValue}>{item.triggeredCount}</Text>
+                        <Text style={styles.strategyStatLabel}>Triggered</Text>
                       </View>
-
-                      <View style={styles.strategyActions}>
-                        <Button
-                          mode="text"
-                          onPress={() => deleteStrategy(strategy.id)}
-                          textColor={Colors.bearish}
-                          compact
-                          icon="delete"
-                        >
-                          Delete
-                        </Button>
-                        
-                        <View style={styles.strategyActionInfo}>
-                          <Text style={styles.strategyCreatedDate}>
-                            Created {strategy.createdAt.toLocaleDateString()}
-                          </Text>
-                        </View>
+                      <View style={styles.strategyStat}>
+                        <Text style={[styles.strategyStatValue, { 
+                          color: item.successRate >= 60 ? Colors.bullish : item.successRate >= 40 ? Colors.accent : Colors.bearish 
+                        }]}>
+                          {item.successRate.toFixed(1)}%
+                        </Text>
+                        <Text style={styles.strategyStatLabel}>Success Rate</Text>
+                      </View>
+                      <View style={styles.strategyStat}>
+                        <Text style={[styles.strategyStatValue, { 
+                          color: item.totalProfit >= 0 ? Colors.bullish : Colors.bearish 
+                        }]}>
+                          {item.totalProfit >= 0 ? '+' : ''}${item.totalProfit.toFixed(2)}
+                        </Text>
+                        <Text style={styles.strategyStatLabel}>Total P&L</Text>
                       </View>
                     </View>
-                    {index < strategies.length - 1 && <Divider style={styles.strategyDivider} />}
+
+                    <View style={styles.strategyConditions}>
+                      <Text style={styles.conditionText}>
+                        Entry: {item.entryCondition}
+                      </Text>
+                      <Text style={styles.conditionText}>
+                        Exit: {item.exitCondition}
+                      </Text>
+                    </View>
+
+                    <Button
+                      mode="text"
+                      onPress={() => {
+                        showAlert(
+                          'Delete Strategy',
+                          `Are you sure you want to delete "${item.name}"?`,
+                          () => deleteAutomationStrategy(item.id)
+                        );
+                      }}
+                      textColor={Colors.bearish}
+                      icon="delete"
+                      compact
+                      style={styles.deleteButton}
+                    >
+                      Delete
+                    </Button>
                   </View>
-                ))}
+                )}
+                ItemSeparatorComponent={() => <Divider style={styles.divider} />}
+              />
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Basic Rules (Legacy) */}
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Basic Rules</Text>
+              <Button
+                mode="text"
+                onPress={() => setShowRuleModal(true)}
+                textColor={Colors.secondary}
+                icon="plus"
+                compact
+              >
+                Add Rule
+              </Button>
+            </View>
+
+            {automationRules.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="rule" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No rules created</Text>
               </View>
+            ) : (
+              <FlatList
+                data={automationRules}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <View style={styles.ruleItem}>
+                    <View style={styles.ruleHeader}>
+                      <Text style={styles.ruleName}>{item.name}</Text>
+                      <Switch
+                        value={item.isActive}
+                        onValueChange={() => toggleAutomationRule(item.id)}
+                        thumbColor={item.isActive ? Colors.secondary : Colors.textMuted}
+                        trackColor={{ false: Colors.border, true: Colors.secondary + '40' }}
+                      />
+                    </View>
+                    <Text style={styles.ruleDescription}>{item.description}</Text>
+                    <Button
+                      mode="text"
+                      onPress={() => deleteAutomationRule(item.id)}
+                      textColor={Colors.bearish}
+                      icon="delete"
+                      compact
+                    >
+                      Delete
+                    </Button>
+                  </View>
+                )}
+                ItemSeparatorComponent={() => <Divider style={styles.divider} />}
+              />
             )}
           </Card.Content>
         </Card>
       </ScrollView>
 
-      {/* New Strategy Modal */}
+      {/* Strategy Modal */}
       <Modal
-        visible={showNewStrategy}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowNewStrategy(false)}
+        visible={showStrategyModal}
+        onDismiss={() => setShowStrategyModal(false)}
+        contentContainerStyle={styles.modalContainer}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.modalTitle}>Create Trading Strategy</Text>
+          
+          <TextInput
+            label="Strategy Name"
+            value={strategyForm.name}
+            onChangeText={(text) => setStrategyForm(prev => ({ ...prev, name: text }))}
+            mode="outlined"
+            style={styles.modalInput}
+            theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+          />
+
+          {/* Indicator Selection */}
+          <Text style={styles.sectionLabel}>Technical Indicator</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+            {['RSI', 'MACD', 'MA', 'BB', 'STOCH', 'ADX'].map(indicator => (
+              <Chip
+                key={indicator}
+                selected={strategyForm.indicator === indicator}
+                onPress={() => setStrategyForm(prev => ({ ...prev, indicator: indicator as any }))}
+                style={[styles.modalChip, strategyForm.indicator === indicator && styles.selectedModalChip]}
+                textStyle={[styles.modalChipText, strategyForm.indicator === indicator && styles.selectedModalChipText]}
+              >
+                {indicator}
+              </Chip>
+            ))}
+          </ScrollView>
+
+          <TextInput
+            label="Symbol"
+            value={strategyForm.symbol}
+            onChangeText={(text) => setStrategyForm(prev => ({ ...prev, symbol: text.toUpperCase() }))}
+            mode="outlined"
+            style={styles.modalInput}
+            theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+          />
+
+          <TextInput
+            label="Entry Condition"
+            value={strategyForm.entryCondition}
+            onChangeText={(text) => setStrategyForm(prev => ({ ...prev, entryCondition: text }))}
+            mode="outlined"
+            multiline
+            numberOfLines={2}
+            style={styles.modalInput}
+            placeholder="e.g., RSI < 30 and price above MA"
+            theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+          />
+
+          <TextInput
+            label="Exit Condition"
+            value={strategyForm.exitCondition}
+            onChangeText={(text) => setStrategyForm(prev => ({ ...prev, exitCondition: text }))}
+            mode="outlined"
+            multiline
+            numberOfLines={2}
+            style={styles.modalInput}
+            placeholder="e.g., RSI > 70 or 2% profit target"
+            theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+          />
+
+          <TextInput
+            label="Position Size (Lots)"
+            value={strategyForm.positionSize.toString()}
+            onChangeText={(text) => setStrategyForm(prev => ({ ...prev, positionSize: parseFloat(text) || 0.01 }))}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.modalInput}
+            theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+          />
+
+          <View style={styles.modalButtons}>
             <Button
-              mode="text"
-              onPress={() => setShowNewStrategy(false)}
+              mode="outlined"
+              onPress={() => setShowStrategyModal(false)}
+              style={styles.modalButton}
               textColor={Colors.textSecondary}
-              compact
             >
               Cancel
             </Button>
-            <Text style={styles.modalTitle}>New Strategy</Text>
             <Button
-              mode="text"
-              onPress={handleCreateStrategy}
-              textColor={Colors.primary}
-              compact
+              mode="contained"
+              onPress={handleAddStrategy}
+              style={styles.modalButton}
+              buttonColor={Colors.primary}
             >
-              Create
+              Create Strategy
             </Button>
           </View>
+        </ScrollView>
+      </Modal>
 
-          <ScrollView style={styles.modalContent}>
-            <TextInput
-              label="Strategy Name *"
-              value={newStrategy.name}
-              onChangeText={(text) => setNewStrategy(prev => ({ ...prev, name: text }))}
-              mode="outlined"
-              style={styles.modalInput}
-              placeholder="e.g., RSI Reversal EURUSD"
-              theme={{
-                colors: {
-                  primary: Colors.primary,
-                  onSurface: Colors.textPrimary,
-                  outline: Colors.border,
-                  surface: Colors.inputBackground,
-                }
-              }}
-              textColor={Colors.textPrimary}
-            />
+      {/* Rule Modal */}
+      <Modal
+        visible={showRuleModal}
+        onDismiss={() => setShowRuleModal(false)}
+        contentContainerStyle={styles.modalContainer}
+      >
+        <Text style={styles.modalTitle}>Create Automation Rule</Text>
+        
+        <TextInput
+          label="Rule Name"
+          value={newRuleName}
+          onChangeText={setNewRuleName}
+          mode="outlined"
+          style={styles.modalInput}
+          theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+        />
 
-            <View style={styles.chipSection}>
-              <Text style={styles.chipSectionTitle}>Technical Indicator</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {['RSI', 'MACD', 'MA', 'BB', 'STOCH', 'ADX'].map((indicator) => (
-                  <Chip
-                    key={indicator}
-                    selected={newStrategy.indicator === indicator}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, indicator: indicator as any }))}
-                    style={[
-                      styles.selectionChip,
-                      newStrategy.indicator === indicator && styles.selectedChip
-                    ]}
-                    textStyle={[
-                      styles.selectionChipText,
-                      newStrategy.indicator === indicator && styles.selectedChipText
-                    ]}
-                  >
-                    {indicator}
-                  </Chip>
-                ))}
-              </ScrollView>
-            </View>
+        <TextInput
+          label="Description"
+          value={newRuleDescription}
+          onChangeText={setNewRuleDescription}
+          mode="outlined"
+          multiline
+          numberOfLines={3}
+          style={styles.modalInput}
+          theme={{ colors: { primary: Colors.primary, outline: Colors.border, surface: Colors.inputBackground } }}
+        />
 
-            <View style={styles.chipSection}>
-              <Text style={styles.chipSectionTitle}>Symbol</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'].map((symbol) => (
-                  <Chip
-                    key={symbol}
-                    selected={newStrategy.symbol === symbol}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, symbol }))}
-                    style={[
-                      styles.selectionChip,
-                      newStrategy.symbol === symbol && styles.selectedChip
-                    ]}
-                    textStyle={[
-                      styles.selectionChipText,
-                      newStrategy.symbol === symbol && styles.selectedChipText
-                    ]}
-                  >
-                    {symbol}
-                  </Chip>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.chipSection}>
-              <Text style={styles.chipSectionTitle}>Timeframe</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {['5M', '15M', '1H', '4H', '1D'].map((timeframe) => (
-                  <Chip
-                    key={timeframe}
-                    selected={newStrategy.timeframe === timeframe}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, timeframe }))}
-                    style={[
-                      styles.selectionChip,
-                      newStrategy.timeframe === timeframe && styles.selectedChip
-                    ]}
-                    textStyle={[
-                      styles.selectionChipText,
-                      newStrategy.timeframe === timeframe && styles.selectedChipText
-                    ]}
-                  >
-                    {timeframe}
-                  </Chip>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.chipSection}>
-              <Text style={styles.chipSectionTitle}>Trade Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {['BUY', 'SELL', 'BOTH'].map((type) => (
-                  <Chip
-                    key={type}
-                    selected={newStrategy.tradeType === type}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, tradeType: type as any }))}
-                    style={[
-                      styles.selectionChip,
-                      newStrategy.tradeType === type && styles.selectedChip
-                    ]}
-                    textStyle={[
-                      styles.selectionChipText,
-                      newStrategy.tradeType === type && styles.selectedChipText
-                    ]}
-                  >
-                    {type}
-                  </Chip>
-                ))}
-              </ScrollView>
-            </View>
-
-            <TextInput
-              label="Position Size (lots) *"
-              value={newStrategy.positionSize}
-              onChangeText={(text) => setNewStrategy(prev => ({ ...prev, positionSize: text }))}
-              mode="outlined"
-              keyboardType="decimal-pad"
-              style={styles.modalInput}
-              placeholder="0.1"
-              theme={{
-                colors: {
-                  primary: Colors.primary,
-                  onSurface: Colors.textPrimary,
-                  outline: Colors.border,
-                  surface: Colors.inputBackground,
-                }
-              }}
-              textColor={Colors.textPrimary}
-            />
-
-            <View style={styles.inputRow}>
-              <TextInput
-                label="Stop Loss (pips)"
-                value={newStrategy.stopLoss}
-                onChangeText={(text) => setNewStrategy(prev => ({ ...prev, stopLoss: text }))}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.modalInput, { flex: 1, marginRight: 8 }]}
-                placeholder="50"
-                theme={{
-                  colors: {
-                    primary: Colors.primary,
-                    onSurface: Colors.textPrimary,
-                    outline: Colors.border,
-                    surface: Colors.inputBackground,
-                  }
-                }}
-                textColor={Colors.textPrimary}
-              />
-
-              <TextInput
-                label="Take Profit (pips)"
-                value={newStrategy.takeProfit}
-                onChangeText={(text) => setNewStrategy(prev => ({ ...prev, takeProfit: text }))}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.modalInput, { flex: 1, marginLeft: 8 }]}
-                placeholder="100"
-                theme={{
-                  colors: {
-                    primary: Colors.primary,
-                    onSurface: Colors.textPrimary,
-                    outline: Colors.border,
-                    surface: Colors.inputBackground,
-                  }
-                }}
-                textColor={Colors.textPrimary}
-              />
-            </View>
-          </ScrollView>
-        </SafeAreaView>
+        <View style={styles.modalButtons}>
+          <Button
+            mode="outlined"
+            onPress={() => setShowRuleModal(false)}
+            style={styles.modalButton}
+            textColor={Colors.textSecondary}
+          >
+            Cancel
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleAddRule}
+            style={styles.modalButton}
+            buttonColor={Colors.secondary}
+          >
+            Create Rule
+          </Button>
+        </View>
       </Modal>
 
       {/* Cross-platform Alert Modal */}
@@ -709,28 +535,15 @@ export default function Automation() {
             <View style={styles.alertContainer}>
               <Text style={styles.alertTitle}>{alertConfig.title}</Text>
               <Text style={styles.alertMessage}>{alertConfig.message}</Text>
-              <View style={styles.alertButtons}>
-                {alertConfig.showCancel && (
-                  <TouchableOpacity
-                    style={[styles.alertButton, styles.alertCancelButton]}
-                    onPress={() => {
-                      alertConfig.onCancel?.();
-                      setAlertConfig(prev => ({ ...prev, visible: false }));
-                    }}
-                  >
-                    <Text style={styles.alertCancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={[styles.alertButton, styles.alertOkButton]}
-                  onPress={() => {
-                    alertConfig.onOk?.();
-                    setAlertConfig(prev => ({ ...prev, visible: false }));
-                  }}
-                >
-                  <Text style={styles.alertOkButtonText}>OK</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.alertButton}
+                onPress={() => {
+                  alertConfig.onOk?.();
+                  setAlertConfig(prev => ({ ...prev, visible: false }));
+                }}
+              >
+                <Text style={styles.alertButtonText}>OK</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -763,99 +576,50 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 4,
   },
-  automationStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  automationStatusText: {
-    ...Typography.caption,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
   scrollView: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  controlCard: {
-    marginTop: 20,
+  statusCard: {
     marginBottom: 16,
-    borderRadius: 16,
-    elevation: 8,
+    borderRadius: 12,
+    elevation: 4,
   },
-  controlGradient: {
-    borderRadius: 16,
+  statusGradient: {
     padding: 20,
+    borderRadius: 12,
   },
-  controlHeader: {
+  statusHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
-  controlTitle: {
+  statusTitle: {
     ...Typography.h5,
     color: Colors.textPrimary,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    ...Typography.h5,
-    color: Colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  controlButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  startButton: {
-    flex: 2,
-  },
-  stopButton: {
-    flex: 2,
-  },
-  newStrategyButton: {
-    flex: 1,
-    borderColor: Colors.primary,
-  },
-  warningCard: {
-    marginBottom: 16,
-    backgroundColor: Colors.accent + '10',
-    borderWidth: 1,
-    borderColor: Colors.accent + '30',
-  },
-  warningContent: {
-    paddingVertical: 16,
-  },
-  warningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  warningTitle: {
-    ...Typography.body1,
-    color: Colors.accent,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  warningText: {
+  statusSubtitle: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    lineHeight: 20,
+    marginTop: 4,
+  },
+  statusGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusItem: {
+    alignItems: 'center',
+  },
+  statusValue: {
+    ...Typography.h6,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  statusLabel: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+    marginTop: 4,
   },
   card: {
     marginBottom: 16,
@@ -866,19 +630,15 @@ const styles = StyleSheet.create({
   cardContent: {
     paddingVertical: 20,
   },
-  sectionHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   cardTitle: {
     ...Typography.h6,
     color: Colors.textPrimary,
-  },
-  strategiesCount: {
-    ...Typography.body2,
-    color: Colors.textMuted,
   },
   emptyState: {
     alignItems: 'center',
@@ -894,68 +654,60 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
-    marginBottom: 20,
   },
-  emptyStateButton: {
-    borderColor: Colors.primary,
-  },
-  strategiesContainer: {
-    gap: 0,
-  },
-  strategyCard: {
+  strategyItem: {
     paddingVertical: 16,
   },
   strategyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   strategyInfo: {
     flex: 1,
-    marginRight: 16,
-  },
-  strategyTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
   },
   strategyName: {
     ...Typography.h6,
     color: Colors.textPrimary,
-    flex: 1,
-    marginRight: 12,
+    marginBottom: 8,
+  },
+  strategyTags: {
+    flexDirection: 'row',
+    gap: 8,
   },
   indicatorChip: {
-    height: 28,
+    backgroundColor: Colors.primary + '20',
+    height: 24,
   },
   indicatorChipText: {
     ...Typography.caption,
-    fontSize: 11,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontSize: 10,
   },
-  strategyDetails: {
-    gap: 4,
+  symbolChip: {
+    backgroundColor: Colors.bullish + '20',
+    height: 24,
   },
-  strategyDetail: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  strategyCondition: {
+  symbolChipText: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.bullish,
+    fontSize: 10,
+  },
+  timeframeChip: {
+    backgroundColor: Colors.accent + '20',
+    height: 24,
+  },
+  timeframeChipText: {
+    ...Typography.caption,
+    color: Colors.accent,
+    fontSize: 10,
   },
   strategyStats: {
-    backgroundColor: Colors.cardElevated,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  statRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 12,
+    paddingHorizontal: 8,
   },
   strategyStat: {
     alignItems: 'center',
@@ -964,88 +716,92 @@ const styles = StyleSheet.create({
     ...Typography.body1,
     color: Colors.textPrimary,
     fontWeight: '600',
-    marginBottom: 2,
   },
   strategyStatLabel: {
     ...Typography.caption,
     color: Colors.textMuted,
+    marginTop: 2,
   },
-  strategyProgressBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
+  strategyConditions: {
+    marginBottom: 12,
   },
-  strategyActions: {
+  conditionText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  deleteButton: {
+    alignSelf: 'flex-start',
+  },
+  ruleItem: {
+    paddingVertical: 16,
+  },
+  ruleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  strategyActionInfo: {
-    alignItems: 'flex-end',
+  ruleName: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '500',
   },
-  strategyCreatedDate: {
-    ...Typography.caption,
-    color: Colors.textMuted,
+  ruleDescription: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 12,
   },
-  strategyDivider: {
+  divider: {
     backgroundColor: Colors.border,
   },
-  // Modal styles
   modalContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+    margin: 20,
+    padding: 20,
+    borderRadius: 12,
+    maxHeight: '80%',
   },
   modalTitle: {
-    ...Typography.h6,
+    ...Typography.h5,
     color: Colors.textPrimary,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  modalContent: {
-    flex: 1,
-    padding: 16,
+  sectionLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  chipScroll: {
+    marginBottom: 16,
+  },
+  modalChip: {
+    marginRight: 8,
+    backgroundColor: Colors.cardElevated,
+  },
+  selectedModalChip: {
+    backgroundColor: Colors.primary,
+  },
+  modalChipText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  selectedModalChipText: {
+    color: Colors.background,
   },
   modalInput: {
     marginBottom: 16,
     backgroundColor: Colors.inputBackground,
   },
-  chipSection: {
-    marginBottom: 20,
-  },
-  chipSectionTitle: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginBottom: 12,
-    fontWeight: '500',
-  },
-  chipScroll: {
-    marginBottom: 4,
-  },
-  selectionChip: {
-    marginRight: 8,
-    backgroundColor: Colors.cardElevated,
-  },
-  selectedChip: {
-    backgroundColor: Colors.primary,
-  },
-  selectionChipText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-  },
-  selectedChipText: {
-    color: Colors.background,
-    fontWeight: '600',
-  },
-  inputRow: {
+  modalButtons: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
   },
   // Cross-platform alert styles
   alertOverlay: {
@@ -1061,7 +817,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 300,
     maxWidth: '90%',
-    elevation: 8,
   },
   alertTitle: {
     ...Typography.h6,
@@ -1077,30 +832,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     textAlign: 'center',
   },
-  alertButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
   alertButton: {
+    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
-    minWidth: 80,
     alignItems: 'center',
+    alignSelf: 'center',
+    minWidth: 80,
   },
-  alertCancelButton: {
-    backgroundColor: Colors.border,
-  },
-  alertOkButton: {
-    backgroundColor: Colors.primary,
-  },
-  alertCancelButtonText: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  alertOkButtonText: {
+  alertButtonText: {
     ...Typography.body2,
     color: Colors.background,
     fontWeight: '500',
