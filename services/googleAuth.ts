@@ -1,72 +1,52 @@
-// Google Authentication Service
-// This is a placeholder implementation for demo purposes
+import { Platform } from 'react-native';
 
-export interface GoogleAuthResult {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    avatar?: string;
-  };
-  tokens: {
-    accessToken: string;
-    refreshToken?: string;
-  };
+interface GoogleUser {
+  id: string;
+  name: string;
+  email: string;
+  photo?: string;
 }
 
 class GoogleAuthService {
-  private isConfigured: boolean = false;
-
-  async configure(): Promise<void> {
-    // Configure Google Sign-In
-    // In a real implementation, this would configure the Google Sign-In SDK
-    this.isConfigured = true;
-  }
-
-  async signIn(): Promise<GoogleAuthResult> {
-    if (!this.isConfigured) {
-      await this.configure();
+  async signIn(): Promise<GoogleUser> {
+    try {
+      // Simulate Google Sign-In process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (Platform.OS === 'web') {
+        // Web implementation would use Google's web SDK
+        return this.simulateWebGoogleAuth();
+      } else {
+        // Mobile implementation would use Google Sign-In SDK
+        return this.simulateMobileGoogleAuth();
+      }
+    } catch (error) {
+      throw new Error('Google Sign-In failed');
     }
-
-    // Demo implementation - simulate Google sign-in
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate successful Google sign-in
-        const result: GoogleAuthResult = {
-          user: {
-            id: 'google_user_' + Date.now(),
-            email: 'demo.user@gmail.com',
-            name: 'Demo Google User',
-            avatar: undefined,
-          },
-          tokens: {
-            accessToken: 'demo_access_token_' + Date.now(),
-            refreshToken: 'demo_refresh_token_' + Date.now(),
-          },
-        };
-        resolve(result);
-      }, 1500);
-    });
   }
 
   async signOut(): Promise<void> {
-    // Sign out from Google
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, 500);
-    });
+    // Simulate sign out
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  async isSignedIn(): Promise<boolean> {
-    // Check if user is signed in with Google
-    return false; // Always false for demo
+  private simulateWebGoogleAuth(): GoogleUser {
+    return {
+      id: 'google_' + Date.now(),
+      name: 'Demo Google User',
+      email: 'demo@gmail.com',
+      photo: 'https://via.placeholder.com/100/0080FF/FFFFFF?text=GU',
+    };
   }
 
-  async getCurrentUser(): Promise<GoogleAuthResult['user'] | null> {
-    // Get current Google user
-    return null; // Always null for demo
+  private simulateMobileGoogleAuth(): GoogleUser {
+    return {
+      id: 'google_mobile_' + Date.now(),
+      name: 'Mobile Google User',
+      email: 'mobile.demo@gmail.com',
+      photo: 'https://via.placeholder.com/100/00C851/FFFFFF?text=MU',
+    };
   }
 }
 
-export const googleAuthService = new GoogleAuthService();
+export const googleAuth = new GoogleAuthService();

@@ -8,11 +8,11 @@ import { router } from 'expo-router';
 import { Colors, Gradients } from '../constants/Colors';
 import { Typography } from '../constants/Typography';
 
-export default function NotFoundScreen() {
+export default function NotFound() {
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={Gradients.header}
+        colors={Gradients.trading}
         style={styles.gradient}
       >
         <View style={styles.content}>
@@ -20,26 +20,26 @@ export default function NotFoundScreen() {
           
           <Text style={styles.title}>Page Not Found</Text>
           <Text style={styles.subtitle}>
-            The page you're looking for does not exist or has been moved.
+            The trading terminal page you're looking for doesn't exist or has been moved.
           </Text>
           
-          <View style={styles.buttons}>
+          <View style={styles.buttonContainer}>
             <Button
               mode="contained"
               onPress={() => router.replace('/(tabs)')}
-              style={styles.primaryButton}
+              style={styles.homeButton}
               buttonColor={Colors.primary}
               textColor={Colors.background}
               icon="home"
               labelStyle={styles.buttonText}
             >
-              Go to Dashboard
+              Return to Trading Terminal
             </Button>
             
             <Button
               mode="outlined"
               onPress={() => router.back()}
-              style={styles.secondaryButton}
+              style={styles.backButton}
               textColor={Colors.primary}
               icon="arrow-back"
               labelStyle={styles.buttonText}
@@ -65,14 +65,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
   title: {
-    ...Typography.h2,
+    ...Typography.h3,
     color: Colors.textPrimary,
+    fontWeight: '700',
     marginTop: 32,
     marginBottom: 16,
-    textAlign: 'center',
   },
   subtitle: {
     ...Typography.body1,
@@ -80,21 +80,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 48,
-    maxWidth: 300,
+    paddingHorizontal: 20,
   },
-  buttons: {
-    gap: 16,
+  buttonContainer: {
     width: '100%',
-    maxWidth: 280,
+    gap: 16,
   },
-  primaryButton: {
+  homeButton: {
     borderRadius: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
-  secondaryButton: {
+  backButton: {
     borderRadius: 12,
+    paddingVertical: 6,
     borderColor: Colors.primary,
-    paddingVertical: 4,
   },
   buttonText: {
     ...Typography.button,
