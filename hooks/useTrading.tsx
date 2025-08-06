@@ -3,9 +3,10 @@ import { TradingContext } from '../contexts/TradingProvider';
 
 export function useTrading() {
   const context = useContext(TradingContext);
-  if (!context) {
-    console.error('useTrading must be used within TradingProvider');
-    // Return fallback values to prevent crashes
+  
+  if (context === undefined) {
+    console.error('useTrading must be used within a TradingProvider');
+    // Return safe defaults instead of throwing
     return {
       trades: [],
       mt5Config: {
@@ -17,7 +18,7 @@ export function useTrading() {
       indicators: {
         rsi: 50,
         fibonacciLevels: [1.618, 1.382, 1.236, 1.000, 0.786, 0.618, 0.500, 0.382, 0.236],
-        movingAverage: 0,
+        movingAverage: 1.0000,
         macd: { signal: 0, histogram: 0 },
       },
       selectedSymbol: 'EURUSD',
@@ -37,13 +38,12 @@ export function useTrading() {
         lastUpdate: null,
       },
       isConnecting: false,
-      connectionError: null,
-      executeTrade: async () => {
-        throw new Error('Trading context not initialized');
-      },
-      connectMT5: async () => {
-        throw new Error('Trading context not initialized');
-      },
+      connectionError: 'Trading context not available',
+      initialized: false,
+      loading: false,
+      error: 'Trading context not available',
+      executeTrade: async () => { throw new Error('Trading not available'); },
+      connectMT5: async () => { throw new Error('MT5 connection not available'); },
       disconnectMT5: () => {},
       updateIndicators: async () => {},
       setSelectedSymbol: () => {},
@@ -59,5 +59,6 @@ export function useTrading() {
       getMarketData: () => null,
     };
   }
+  
   return context;
 }

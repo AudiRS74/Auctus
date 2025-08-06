@@ -6,78 +6,46 @@ import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../contexts/AuthContext';
 import { TradingProvider } from '../contexts/TradingProvider';
+import { LoadingScreen } from '../components/LoadingScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Colors } from '../constants/Colors';
 
-// Error Boundary Component
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error?: Error }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    console.error('React Error Boundary caught error:', error);
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error Boundary Details:', {
-      error: error.toString(),
-      errorInfo,
-      stack: error.stack,
-    });
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={styles.errorContainer}>
-          <View style={styles.errorContent}>
-            <Text style={styles.errorTitle}>Application Error</Text>
-            <Text style={styles.errorMessage}>
-              Something went wrong. Please restart the application.
-            </Text>
-            <Text style={styles.errorDetails}>
-              {this.state.error?.message || 'Unknown error occurred'}
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-// Debug component to show loading state
+// App Initializer Component
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        console.log('Starting app initialization...');
-        
-        // Check if required modules are available
-        console.log('Checking dependencies...');
-        
-        // Simulate initialization delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log('App initialization completed successfully');
-        setIsInitialized(true);
-      } catch (error) {
-        console.error('App initialization failed:', error);
+    setIsMounted(true);
+    initialize();
+    
+    return () => {
+      setIsMounted(false);
+    };
+  }, []);
+
+  const initialize = async () => {
+    try {
+      console.log('App: Starting initialization...');
+      
+      // Check if required modules are available
+      console.log('App: Checking dependencies...');
+      
+      // Simulate initialization delay for proper loading
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!isMounted) return;
+      
+      console.log('App: Initialization completed successfully');
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('App: Initialization failed:', error);
+      if (isMounted) {
         setInitError(error instanceof Error ? error.message : 'Unknown initialization error');
       }
-    };
-
-    initialize();
-  }, []);
+    }
+  };
 
   if (initError) {
     return (
@@ -95,30 +63,47 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingContent}>
-          <Text style={styles.loadingText}>Initializing Trading App...</Text>
-          <Text style={styles.loadingSubtext}>Loading components and services</Text>
-        </View>
-      </View>
+      <LoadingScreen 
+        message="Initializing Trading App..."
+        submessage="Loading components and services"
+        icon="hourglass-empty"
+      />
     );
   }
 
   return <>{children}</>;
 }
 
+// Context Provider Wrapper
+function ContextProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary fallbackTitle="Context Error" fallbackMessage="Failed to initialize app contexts">
+      <AuthProvider>
+        <ErrorBoundary fallbackTitle="Trading Service Error" fallbackMessage="Failed to initialize trading services">
+          <TradingProvider>
+            {children}
+          </TradingProvider>
+        </ErrorBoundary>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
+
 export default function RootLayout() {
-  console.log('RootLayout rendering...');
+  console.log('RootLayout: Rendering...');
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary 
+      fallbackTitle="Application Error" 
+      fallbackMessage="A critical error occurred. Please restart the application."
+    >
       <SafeAreaProvider>
         <PaperProvider>
           <AppInitializer>
-            <AuthProvider>
-              <TradingProvider>
-                <View style={styles.container}>
-                  <StatusBar style="light" backgroundColor={Colors.background} />
+            <ContextProviders>
+              <View style={styles.container}>
+                <StatusBar style="light" backgroundColor={Colors.background} />
+                <ErrorBoundary fallbackTitle="Navigation Error" fallbackMessage="Navigation system encountered an error">
                   <Stack
                     screenOptions={{
                       headerShown: false,
@@ -130,9 +115,9 @@ export default function RootLayout() {
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="+not-found" />
                   </Stack>
-                </View>
-              </TradingProvider>
-            </AuthProvider>
+                </ErrorBoundary>
+              </View>
+            </ContextProviders>
           </AppInitializer>
         </PaperProvider>
       </SafeAreaProvider>
@@ -144,26 +129,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingContent: {
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    color: Colors.textSecondary,
   },
   errorContainer: {
     flex: 1,

@@ -3,17 +3,22 @@ import { AuthContext } from '../contexts/AuthContext';
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    console.error('useAuth must be used within AuthProvider');
-    // Return fallback values to prevent crashes
+  
+  if (context === undefined) {
+    console.error('useAuth must be used within an AuthProvider');
+    // Return safe defaults instead of throwing
     return {
       user: null,
       isAuthenticated: false,
-      signIn: async () => ({ user: null, error: 'Auth not initialized' }),
+      signIn: async () => ({ error: 'Authentication not available' }),
       signOut: async () => {},
+      updateProfile: async () => {},
       loading: false,
-      error: 'Auth context not found'
+      error: 'Authentication context not found',
+      logout: async () => {},
+      initialized: false,
     };
   }
+  
   return context;
 }

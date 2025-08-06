@@ -6,12 +6,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { SafeComponentWrapper } from '../../components/SafeComponentWrapper';
 import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 const { width } = Dimensions.get('window');
 
-export default function Dashboard() {
+function DashboardContent() {
   const { user } = useAuth();
   const { 
     trades, 
@@ -20,17 +22,20 @@ export default function Dashboard() {
     selectedSymbol, 
     realTimeData, 
     automationStatus,
-    refreshAccountData 
+    refreshAccountData,
+    initialized: tradingInitialized,
+    loading: tradingLoading,
+    error: tradingError
   } = useTrading();
 
   // Auto-refresh data when connected
   useEffect(() => {
-    if (mt5Config.connected) {
+    if (mt5Config.connected && tradingInitialized) {
       refreshAccountData();
       const interval = setInterval(refreshAccountData, 30000); // Every 30 seconds
       return () => clearInterval(interval);
     }
-  }, [mt5Config.connected]);
+  }, [mt5Config.connected, tradingInitialized]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -121,7 +126,6 @@ export default function Dashboard() {
               <Button
                 mode="outlined"
                 onPress={() => {
-                  // Navigation to settings would go here
                   console.log('Navigate to settings');
                 }}
                 style={styles.demoBannerButton}
@@ -351,6 +355,35 @@ export default function Dashboard() {
         </Card>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function Dashboard() {
+  const { initialized: authInitialized, loading: authLoading } = useAuth();
+  const { initialized: tradingInitialized, loading: tradingLoading, error: tradingError } = useTrading();
+
+  // Show loading screen while contexts are initializing
+  if (authLoading || tradingLoading || !authInitialized || !tradingInitialized) {
+    return (
+      <LoadingScreen 
+        message="Loading Dashboard..."
+        submessage="Initializing trading services and data feeds"
+        icon="dashboard"
+      />
+    );
+  }
+
+  return (
+    <SafeComponentWrapper
+      loading={tradingLoading}
+      error={tradingError}
+      loadingMessage="Loading dashboard data..."
+      errorTitle="Dashboard Error"
+      errorMessage="Failed to load dashboard. Please check your connection and try again."
+      onRetry={() => window.location.reload()}
+    >
+      <DashboardContent />
+    </SafeComponentWrapper>
   );
 }
 

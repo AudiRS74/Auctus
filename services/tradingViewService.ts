@@ -1,5 +1,3 @@
-import { EventEmitter } from 'events';
-
 export interface TradingViewData {
   symbol: string;
   price: number;
@@ -13,123 +11,113 @@ export interface TradingViewData {
   timestamp: Date;
 }
 
-class TradingViewService extends EventEmitter {
-  private subscriptions: Map<string, NodeJS.Timeout> = new Map();
-  private priceData: Map<string, TradingViewData> = new Map();
+class TradingViewService {
+  private subscriptions: Map<string, Set<(data: TradingViewData) => void>> = new Map();
+  private intervals: Map<string, NodeJS.Timeout> = new Map();
+  private basePrice: Map<string, number> = new Map();
 
-  subscribeToPrice(symbol: string, callback: (data: TradingViewData) => void): () => void {
-    // Clean up existing subscription
-    this.unsubscribeFromPrice(symbol);
-
-    // Generate initial price data
-    const basePrice = this.getBasePriceForSymbol(symbol);
-    let currentPrice = basePrice;
-
-    const generatePriceUpdate = () => {
-      // Simulate realistic price movement
-      const volatility = this.getVolatilityForSymbol(symbol);
-      const change = (Math.random() - 0.5) * volatility;
-      currentPrice += change;
-
-      // Ensure price doesn't go negative
-      currentPrice = Math.max(currentPrice, 0.0001);
-
-      const data: TradingViewData = {
-        symbol,
-        price: currentPrice,
-        change: currentPrice - basePrice,
-        changePercent: ((currentPrice - basePrice) / basePrice) * 100,
-        volume: Math.floor(Math.random() * 1000000) + 100000,
-        high: currentPrice * (1 + Math.random() * 0.001),
-        low: currentPrice * (1 - Math.random() * 0.001),
-        open: basePrice,
-        close: currentPrice,
-        timestamp: new Date(),
-      };
-
-      this.priceData.set(symbol, data);
-      callback(data);
-    };
-
-    // Initial call
-    generatePriceUpdate();
-
-    // Set up interval for updates
-    const interval = setInterval(generatePriceUpdate, 2000 + Math.random() * 3000);
-    this.subscriptions.set(symbol, interval);
-
-    // Return unsubscribe function
-    return () => this.unsubscribeFromPrice(symbol);
+  constructor() {
+    this.initializeBasePrices();
   }
 
-  unsubscribeFromPrice(symbol: string): void {
-    const interval = this.subscriptions.get(symbol);
-    if (interval) {
-      clearInterval(interval);
-      this.subscriptions.delete(symbol);
-    }
+  private initializeBasePrices() {
+    const prices: { [key: string]: number } = {
+      'EURUSD': 1.0850,
+      'GBPUSD': 1.2650,
+      'USDJPY': 149.50,
+      'AUDUSD': 0.6750,
+      'USDCAD': 1.3650,
+      'USDCHF': 0.9150,
+      'NZDUSD': 0.6250,
+      'EURJPY': 162.25,
+      'GBPJPY': 189.15,
+      'EURGBP': 0.8580
+    };
+
+    Object.entries(prices).forEach(([symbol, price]) => {
+      this.basePrice.set(symbol, price);
+    });
   }
 
   async getRealTimePrice(symbol: string): Promise<TradingViewData | null> {
-    const cached = this.priceData.get(symbol);
-    if (cached && Date.now() - cached.timestamp.getTime() < 10000) {
-      return cached;
+    try {
+      console.log(`TradingViewService: Getting price for ${symbol}`);
+      
+      const basePrice = this.basePrice.get(symbol) || 1.0000;
+      const variation = (Math.random() - 0.5) * 0.002;
+      const currentPrice = basePrice + variation;
+      
+      const data: TradingViewData = {
+        symbol,
+        price: Number(currentPrice.toFixed(5)),
+        change: Number(variation.toFixed(5)),
+        changePercent: Number((variation / basePrice * 100).toFixed(3)),
+        volume: Math.floor(Math.random() * 1000000),
+        high: Number((currentPrice + Math.random() * 0.001).toFixed(5)),
+        low: Number((currentPrice - Math.random() * 0.001).toFixed(5)),
+        open: Number((basePrice + (Math.random() - 0.5) * 0.001).toFixed(5)),
+        close: Number(currentPrice.toFixed(5)),
+        timestamp: new Date(),
+      };
+
+      return data;
+    } catch (error) {
+      console.error(`TradingViewService: Error getting price for ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  subscribeToPrice(symbol: string, callback: (data: TradingViewData) => void): () => void {
+    console.log(`TradingViewService: Subscribing to ${symbol}`);
+
+    if (!this.subscriptions.has(symbol)) {
+      this.subscriptions.set(symbol, new Set());
     }
 
-    // Generate fresh data
-    const basePrice = this.getBasePriceForSymbol(symbol);
-    const data: TradingViewData = {
-      symbol,
-      price: basePrice,
-      change: 0,
-      changePercent: 0,
-      volume: Math.floor(Math.random() * 1000000) + 100000,
-      high: basePrice * 1.001,
-      low: basePrice * 0.999,
-      open: basePrice,
-      close: basePrice,
-      timestamp: new Date(),
-    };
+    const callbacks = this.subscriptions.get(symbol)!;
+    callbacks.add(callback);
 
-    this.priceData.set(symbol, data);
-    return data;
-  }
+    // Start interval if this is the first subscription for this symbol
+    if (callbacks.size === 1) {
+      const interval = setInterval(async () => {
+        const data = await this.getRealTimePrice(symbol);
+        if (data) {
+          callbacks.forEach(cb => {
+            try {
+              cb(data);
+            } catch (error) {
+              console.error('TradingViewService: Callback error:', error);
+            }
+          });
+        }
+      }, 3000); // Update every 3 seconds
 
-  private getBasePriceForSymbol(symbol: string): number {
-    const basePrices: { [key: string]: number } = {
-      'EURUSD': 1.08500,
-      'GBPUSD': 1.27000,
-      'USDJPY': 148.500,
-      'AUDUSD': 0.66500,
-      'USDCAD': 1.36000,
-      'USDCHF': 0.87500,
-      'NZDUSD': 0.61500,
-      'EURGBP': 0.85400,
-      'EURJPY': 161.200,
-      'GBPJPY': 188.400,
-    };
-    
-    return basePrices[symbol] || (Math.random() * 100 + 1);
-  }
+      this.intervals.set(symbol, interval);
+    }
 
-  private getVolatilityForSymbol(symbol: string): number {
-    const volatilities: { [key: string]: number } = {
-      'EURUSD': 0.0001,
-      'GBPUSD': 0.00015,
-      'USDJPY': 0.01,
-      'AUDUSD': 0.0001,
-      'USDCAD': 0.0001,
-      'USDCHF': 0.0001,
-      'NZDUSD': 0.0001,
+    // Return unsubscribe function
+    return () => {
+      callbacks.delete(callback);
+      
+      // If no more callbacks, clear the interval
+      if (callbacks.size === 0) {
+        const interval = this.intervals.get(symbol);
+        if (interval) {
+          clearInterval(interval);
+          this.intervals.delete(symbol);
+        }
+        this.subscriptions.delete(symbol);
+      }
     };
-    
-    return volatilities[symbol] || 0.0001;
   }
 
   cleanup(): void {
-    this.subscriptions.forEach((interval) => clearInterval(interval));
+    console.log('TradingViewService: Cleaning up subscriptions');
+    
+    // Clear all intervals
+    this.intervals.forEach(interval => clearInterval(interval));
+    this.intervals.clear();
     this.subscriptions.clear();
-    this.priceData.clear();
   }
 }
 

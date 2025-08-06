@@ -1,80 +1,143 @@
-interface TradingSignal {
+export interface TradingSignal {
   id: string;
   symbol: string;
   action: 'BUY' | 'SELL';
-  strength: number;
-  price: number;
+  strength: number; // 0-100
+  indicator: string;
+  timeframe: string;
   timestamp: Date;
-  strategy: string;
+  price?: number;
+  stopLoss?: number;
+  takeProfit?: number;
 }
 
-interface StrategyConfig {
+export interface AutomationStrategy {
   id: string;
   name: string;
-  indicator: string;
+  isActive: boolean;
+  indicator: 'RSI' | 'MACD' | 'MA' | 'BB' | 'STOCH' | 'ADX';
   symbol: string;
   timeframe: string;
   entryCondition: string;
   exitCondition: string;
+  tradeType: 'BUY' | 'SELL' | 'BOTH';
+  positionSize: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  createdAt: Date;
+  triggeredCount: number;
+  successRate: number;
+  totalProfit: number;
 }
 
 class AutomationEngine {
   private isRunning: boolean = false;
   private signals: TradingSignal[] = [];
-  private strategies: Map<string, StrategyConfig> = new Map();
+  private maxSignals: number = 1000;
 
   start(): void {
+    console.log('AutomationEngine: Starting');
     this.isRunning = true;
-    console.log('Automation engine started');
   }
 
   stop(): void {
+    console.log('AutomationEngine: Stopping');
     this.isRunning = false;
-    console.log('Automation engine stopped');
   }
 
   isEngineRunning(): boolean {
     return this.isRunning;
   }
 
-  evaluateStrategy(strategy: any, symbol: string): TradingSignal | null {
-    if (!this.isRunning) return null;
+  evaluateStrategy(strategy: AutomationStrategy, symbol: string): TradingSignal | null {
+    try {
+      if (!this.isRunning || !strategy.isActive) {
+        return null;
+      }
 
-    // Simulate strategy evaluation
-    const shouldTrigger = Math.random() > 0.85; // 15% chance of signal
-    
-    if (!shouldTrigger) return null;
+      console.log(`AutomationEngine: Evaluating strategy ${strategy.name} for ${symbol}`);
 
-    const signal: TradingSignal = {
-      id: Date.now().toString(),
-      symbol,
-      action: Math.random() > 0.5 ? 'BUY' : 'SELL',
-      strength: 65 + Math.random() * 30, // 65-95% strength
-      price: Math.random() * 2 + 1, // Dummy price
-      timestamp: new Date(),
-      strategy: strategy.name,
-    };
+      // Generate mock signal based on strategy
+      const shouldTrigger = Math.random() > 0.85; // 15% chance of signal
+      
+      if (!shouldTrigger) {
+        return null;
+      }
 
-    return signal;
-  }
+      // Generate signal strength based on indicator
+      const baseStrength = this.calculateIndicatorStrength(strategy.indicator);
+      const randomVariation = (Math.random() - 0.5) * 20;
+      const strength = Math.max(0, Math.min(100, baseStrength + randomVariation));
 
-  addSignal(signal: TradingSignal): void {
-    this.signals.push(signal);
-    
-    // Keep only last 100 signals
-    if (this.signals.length > 100) {
-      this.signals = this.signals.slice(-100);
+      // Only return strong signals
+      if (strength < 60) {
+        return null;
+      }
+
+      const signal: TradingSignal = {
+        id: `signal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        symbol,
+        action: strategy.tradeType === 'BOTH' ? 
+          (Math.random() > 0.5 ? 'BUY' : 'SELL') : 
+          strategy.tradeType as 'BUY' | 'SELL',
+        strength: Number(strength.toFixed(1)),
+        indicator: strategy.indicator,
+        timeframe: strategy.timeframe,
+        timestamp: new Date(),
+        price: 1.0850 + (Math.random() - 0.5) * 0.01,
+      };
+
+      console.log(`AutomationEngine: Signal generated:`, signal);
+      return signal;
+
+    } catch (error) {
+      console.error('AutomationEngine: Error evaluating strategy:', error);
+      return null;
     }
   }
 
+  private calculateIndicatorStrength(indicator: string): number {
+    // Mock indicator strength calculation
+    const indicatorStrengths: { [key: string]: number } = {
+      'RSI': 70 + Math.random() * 20,
+      'MACD': 65 + Math.random() * 25,
+      'MA': 60 + Math.random() * 30,
+      'BB': 75 + Math.random() * 15,
+      'STOCH': 68 + Math.random() * 22,
+      'ADX': 72 + Math.random() * 18,
+    };
+
+    return indicatorStrengths[indicator] || 50;
+  }
+
+  addSignal(signal: TradingSignal): void {
+    this.signals.unshift(signal);
+    
+    // Keep only the most recent signals
+    if (this.signals.length > this.maxSignals) {
+      this.signals = this.signals.slice(0, this.maxSignals);
+    }
+
+    console.log(`AutomationEngine: Signal added. Total signals: ${this.signals.length}`);
+  }
+
   getSignals(): TradingSignal[] {
-    return this.signals;
+    return [...this.signals];
+  }
+
+  getRecentSignals(limit: number = 10): TradingSignal[] {
+    return this.signals.slice(0, limit);
+  }
+
+  clearSignals(): void {
+    this.signals = [];
+    console.log('AutomationEngine: All signals cleared');
   }
 
   cleanup(): void {
+    console.log('AutomationEngine: Cleaning up');
     this.stop();
-    this.signals = [];
-    this.strategies.clear();
+    this.clearSignals();
   }
 }
 
