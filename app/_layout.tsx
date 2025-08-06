@@ -1,25 +1,45 @@
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { Slot, SplashScreen } from 'expo-router';
+import { Slot, SplashScreen, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from '../contexts/AuthContext';
 import { TradingProvider } from '../contexts/TradingProvider';
+import { useAuth } from '../hooks/useAuth';
 import { Colors } from '../constants/Colors';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+// Inner component that handles routing logic
+function RootLayoutInner() {
+  const { isAuthenticated, loading } = useAuth();
+
   useEffect(() => {
-    // Hide splash screen after app loads
-    const timer = setTimeout(() => {
+    if (!loading) {
+      // Hide splash screen once auth state is determined
       SplashScreen.hideAsync();
-    }, 1000);
+      
+      // Navigate to appropriate screen based on auth state
+      if (isAuthenticated) {
+        // User is logged in, navigate to tabs
+        router.replace('/(tabs)/');
+      } else {
+        // User is not logged in, navigate to auth
+        router.replace('/(auth)/');
+      }
+    }
+  }, [isAuthenticated, loading]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  // Show nothing while determining auth state and navigating
+  if (loading) {
+    return null;
+  }
 
+  return <Slot />;
+}
+
+export default function RootLayout() {
   const paperTheme = {
     colors: {
       primary: Colors.primary,
@@ -46,7 +66,7 @@ export default function RootLayout() {
             style={Platform.OS === 'ios' ? 'light' : 'light'} 
             backgroundColor={Colors.background}
           />
-          <Slot />
+          <RootLayoutInner />
         </TradingProvider>
       </AuthProvider>
     </PaperProvider>

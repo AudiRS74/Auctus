@@ -1,14 +1,22 @@
-import React from 'react';
-import { Stack } from 'expo-router';
-import { Colors } from '../../constants/Colors';
+import React, { useEffect } from 'react';
+import { Stack, router } from 'expo-router';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function AuthLayout() {
+  const { isAuthenticated, loading } = useAuth();
+
+  // Redirect to tabs if user becomes authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.replace('/(tabs)/');
+    }
+  }, [isAuthenticated, loading]);
+
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: Colors.background },
-        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: '#1A1A1A' },
       }}
     >
       <Stack.Screen name="index" />
