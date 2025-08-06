@@ -1,110 +1,102 @@
+import { EventEmitter } from 'events';
+
 export interface TradingViewData {
   symbol: string;
   price: number;
   change: number;
   changePercent: number;
+  volume: number;
   high: number;
   low: number;
   open: number;
-  volume: number;
+  close: number;
   timestamp: Date;
 }
 
-class TradingViewService {
-  private subscriptions: Map<string, Set<(data: TradingViewData) => void>> = new Map();
-  private priceCache: Map<string, TradingViewData> = new Map();
-  private updateInterval: NodeJS.Timeout | null = null;
+class TradingViewService extends EventEmitter {
+  private subscriptions: Map<string, NodeJS.Timeout> = new Map();
+  private priceData: Map<string, TradingViewData> = new Map();
 
-  constructor() {
-    this.startPriceUpdates();
-  }
+  subscribeToPrice(symbol: string, callback: (data: TradingViewData) => void): () => void {
+    // Clean up existing subscription
+    this.unsubscribeFromPrice(symbol);
 
-  async getRealTimePrice(symbol: string): Promise<TradingViewData | null> {
-    try {
-      // Simulate real TradingView API call
-      const basePrice = this.getBasePrice(symbol);
-      const volatility = this.getVolatility(symbol);
-      
-      // Generate realistic price data
+    // Generate initial price data
+    const basePrice = this.getBasePriceForSymbol(symbol);
+    let currentPrice = basePrice;
+
+    const generatePriceUpdate = () => {
+      // Simulate realistic price movement
+      const volatility = this.getVolatilityForSymbol(symbol);
+      const change = (Math.random() - 0.5) * volatility;
+      currentPrice += change;
+
+      // Ensure price doesn't go negative
+      currentPrice = Math.max(currentPrice, 0.0001);
+
       const data: TradingViewData = {
         symbol,
-        price: basePrice + (Math.random() - 0.5) * volatility,
-        change: (Math.random() - 0.5) * volatility * 2,
-        changePercent: (Math.random() - 0.5) * 2,
-        high: basePrice + Math.random() * volatility,
-        low: basePrice - Math.random() * volatility,
-        open: basePrice + (Math.random() - 0.5) * volatility * 0.5,
+        price: currentPrice,
+        change: currentPrice - basePrice,
+        changePercent: ((currentPrice - basePrice) / basePrice) * 100,
         volume: Math.floor(Math.random() * 1000000) + 100000,
+        high: currentPrice * (1 + Math.random() * 0.001),
+        low: currentPrice * (1 - Math.random() * 0.001),
+        open: basePrice,
+        close: currentPrice,
         timestamp: new Date(),
       };
 
-      this.priceCache.set(symbol, data);
-      return data;
-    } catch (error) {
-      console.error('Failed to fetch real-time price:', error);
-      return null;
-    }
-  }
+      this.priceData.set(symbol, data);
+      callback(data);
+    };
 
-  subscribeToPrice(symbol: string, callback: (data: TradingViewData) => void): () => void {
-    if (!this.subscriptions.has(symbol)) {
-      this.subscriptions.set(symbol, new Set());
-    }
-    
-    this.subscriptions.get(symbol)!.add(callback);
-    
-    // Send initial data if cached
-    const cachedData = this.priceCache.get(symbol);
-    if (cachedData) {
-      callback(cachedData);
-    } else {
-      // Fetch initial data
-      this.getRealTimePrice(symbol).then(data => {
-        if (data) {
-          callback(data);
-        }
-      });
-    }
+    // Initial call
+    generatePriceUpdate();
+
+    // Set up interval for updates
+    const interval = setInterval(generatePriceUpdate, 2000 + Math.random() * 3000);
+    this.subscriptions.set(symbol, interval);
 
     // Return unsubscribe function
-    return () => {
-      const callbacks = this.subscriptions.get(symbol);
-      if (callbacks) {
-        callbacks.delete(callback);
-        if (callbacks.size === 0) {
-          this.subscriptions.delete(symbol);
-        }
-      }
-    };
+    return () => this.unsubscribeFromPrice(symbol);
   }
 
-  private startPriceUpdates(): void {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
+  unsubscribeFromPrice(symbol: string): void {
+    const interval = this.subscriptions.get(symbol);
+    if (interval) {
+      clearInterval(interval);
+      this.subscriptions.delete(symbol);
+    }
+  }
+
+  async getRealTimePrice(symbol: string): Promise<TradingViewData | null> {
+    const cached = this.priceData.get(symbol);
+    if (cached && Date.now() - cached.timestamp.getTime() < 10000) {
+      return cached;
     }
 
-    this.updateInterval = setInterval(() => {
-      this.subscriptions.forEach((callbacks, symbol) => {
-        if (callbacks.size > 0) {
-          this.getRealTimePrice(symbol).then(data => {
-            if (data) {
-              callbacks.forEach(callback => {
-                try {
-                  callback(data);
-                } catch (error) {
-                  console.error('Callback error:', error);
-                }
-              });
-            }
-          });
-        }
-      });
-    }, 2000); // Update every 2 seconds
+    // Generate fresh data
+    const basePrice = this.getBasePriceForSymbol(symbol);
+    const data: TradingViewData = {
+      symbol,
+      price: basePrice,
+      change: 0,
+      changePercent: 0,
+      volume: Math.floor(Math.random() * 1000000) + 100000,
+      high: basePrice * 1.001,
+      low: basePrice * 0.999,
+      open: basePrice,
+      close: basePrice,
+      timestamp: new Date(),
+    };
+
+    this.priceData.set(symbol, data);
+    return data;
   }
 
-  private getBasePrice(symbol: string): number {
+  private getBasePriceForSymbol(symbol: string): number {
     const basePrices: { [key: string]: number } = {
-      // Forex Major Pairs
       'EURUSD': 1.08500,
       'GBPUSD': 1.27000,
       'USDJPY': 148.500,
@@ -112,109 +104,33 @@ class TradingViewService {
       'USDCAD': 1.36000,
       'USDCHF': 0.87500,
       'NZDUSD': 0.61500,
-      
-      // Forex Minor Pairs
-      'EURGBP': 0.85300,
+      'EURGBP': 0.85400,
       'EURJPY': 161.200,
-      'GBPJPY': 188.500,
-      
-      // Crypto
-      'BTCUSD': 43250.00,
-      'ETHUSD': 2650.00,
-      'ADAUSD': 0.48500,
-      'SOLUSD': 98.500,
-      'DOTUSD': 6.8500,
-      
-      // Stocks
-      'AAPL': 195.50,
-      'GOOGL': 142.80,
-      'MSFT': 415.20,
-      'TSLA': 248.50,
-      'AMZN': 155.80,
-      'NVDA': 875.60,
-      
-      // Indices
-      'SPX500': 4750.20,
-      'NAS100': 16850.40,
-      'US30': 37250.80,
-      'GER40': 16980.50,
-      'UK100': 7650.30,
-      
-      // Commodities
-      'XAUUSD': 2035.50, // Gold
-      'XAGUSD': 23.850,  // Silver
-      'USOIL': 72.500,   // WTI Crude Oil
-      'UKOIL': 78.200,   // Brent Crude Oil
+      'GBPJPY': 188.400,
     };
-
+    
     return basePrices[symbol] || (Math.random() * 100 + 1);
   }
 
-  private getVolatility(symbol: string): number {
+  private getVolatilityForSymbol(symbol: string): number {
     const volatilities: { [key: string]: number } = {
-      // Forex - low volatility
-      'EURUSD': 0.003,
-      'GBPUSD': 0.004,
-      'USDJPY': 0.8,
-      'AUDUSD': 0.003,
-      'USDCAD': 0.003,
-      
-      // Crypto - high volatility
-      'BTCUSD': 1500,
-      'ETHUSD': 80,
-      'ADAUSD': 0.03,
-      'SOLUSD': 8,
-      
-      // Stocks - medium volatility
-      'AAPL': 5,
-      'GOOGL': 4,
-      'MSFT': 8,
-      'TSLA': 15,
-      'NVDA': 25,
-      
-      // Indices - low to medium volatility
-      'SPX500': 25,
-      'NAS100': 80,
-      'US30': 180,
-      
-      // Commodities - medium volatility
-      'XAUUSD': 15,
-      'XAGUSD': 0.8,
-      'USOIL': 2.5,
+      'EURUSD': 0.0001,
+      'GBPUSD': 0.00015,
+      'USDJPY': 0.01,
+      'AUDUSD': 0.0001,
+      'USDCAD': 0.0001,
+      'USDCHF': 0.0001,
+      'NZDUSD': 0.0001,
     };
-
-    return volatilities[symbol] || 1;
+    
+    return volatilities[symbol] || 0.0001;
   }
 
   cleanup(): void {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
+    this.subscriptions.forEach((interval) => clearInterval(interval));
     this.subscriptions.clear();
-    this.priceCache.clear();
+    this.priceData.clear();
   }
 }
 
 export const tradingViewService = new TradingViewService();
-
-// Utility function to convert our symbols to TradingView format
-export function getTradingViewSymbol(symbol: string): string {
-  const symbolMappings: { [key: string]: string } = {
-    'EURUSD': 'FX:EURUSD',
-    'GBPUSD': 'FX:GBPUSD',
-    'USDJPY': 'FX:USDJPY',
-    'AUDUSD': 'FX:AUDUSD',
-    'USDCAD': 'FX:USDCAD',
-    'BTCUSD': 'BINANCE:BTCUSDT',
-    'ETHUSD': 'BINANCE:ETHUSDT',
-    'AAPL': 'NASDAQ:AAPL',
-    'GOOGL': 'NASDAQ:GOOGL',
-    'MSFT': 'NASDAQ:MSFT',
-    'TSLA': 'NASDAQ:TSLA',
-    'SPX500': 'SP:SPX',
-    'XAUUSD': 'TVC:GOLD',
-  };
-
-  return symbolMappings[symbol] || `FX:${symbol}`;
-}
