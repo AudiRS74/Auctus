@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, TextInput } from 'react-native-paper';
+import { TextInput, Button, Card, Checkbox } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,295 +10,217 @@ import { Colors, Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 export default function SignUp() {
-  const { register, loading } = useAuth();
+  const { register, loginWithGoogle, loading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
-
-  // Cross-platform alert state
-  const [alertConfig, setAlertConfig] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    onOk?: () => void;
-  }>({ visible: false, title: '', message: '' });
-
-  const showAlert = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === 'web') {
-      setAlertConfig({ visible: true, title, message, onOk });
-    } else {
-      const Alert = require('react-native').Alert;
-      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
-    }
-  };
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
-      setError('Please fill in all fields');
+    // Validation
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields', [{ text: 'OK' }]);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      Alert.alert('Error', 'Passwords do not match', [{ text: 'OK' }]);
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (!acceptTerms) {
+      Alert.alert('Error', 'Please accept the Terms & Conditions', [{ text: 'OK' }]);
       return;
     }
 
     try {
-      setError('');
-      await register(email.trim(), password, name.trim());
-      showAlert('Account Created', 'Your demo trading account has been created successfully!', () => {
-        router.replace('/(tabs)');
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
-      setError(message);
-      showAlert('Registration Failed', message);
+      await register(email, password, name);
+      // Navigation is handled automatically by the auth routing logic
+    } catch (error) {
+      Alert.alert(
+        'Registration Failed',
+        error instanceof Error ? error.message : 'An error occurred during registration',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      await loginWithGoogle();
+      // Navigation is handled automatically by the auth routing logic
+    } catch (error) {
+      Alert.alert(
+        'Google Sign Up Failed',
+        error instanceof Error ? error.message : 'An error occurred during Google sign up',
+        [{ text: 'OK' }]
+      );
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={Gradients.trading}
-        style={styles.gradient}
-      >
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
-              >
-                <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
-              </TouchableOpacity>
-              
-              <View style={styles.headerContent}>
-                <Text style={styles.title}>Create Account</Text>
-                <Text style={styles.subtitle}>Join the professional trading community</Text>
-              </View>
-            </View>
-
-            {/* Registration Form */}
-            <Card style={styles.formCard}>
-              <LinearGradient
-                colors={[Colors.secondary + '10', Colors.surface]}
-                style={styles.formGradient}
-              >
-                <View style={styles.formContent}>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      label="Full Name"
-                      value={name}
-                      onChangeText={(text) => {
-                        setName(text);
-                        setError('');
-                      }}
-                      mode="outlined"
-                      autoCapitalize="words"
-                      style={styles.input}
-                      theme={{
-                        colors: {
-                          primary: Colors.primary,
-                          onSurface: Colors.textPrimary,
-                          outline: Colors.border,
-                          surface: Colors.inputBackground,
-                        }
-                      }}
-                      textColor={Colors.textPrimary}
-                      left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
-                    />
-
-                    <TextInput
-                      label="Email Address"
-                      value={email}
-                      onChangeText={(text) => {
-                        setEmail(text);
-                        setError('');
-                      }}
-                      mode="outlined"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      style={styles.input}
-                      theme={{
-                        colors: {
-                          primary: Colors.primary,
-                          onSurface: Colors.textPrimary,
-                          outline: Colors.border,
-                          surface: Colors.inputBackground,
-                        }
-                      }}
-                      textColor={Colors.textPrimary}
-                      left={<TextInput.Icon icon="email" iconColor={Colors.textMuted} />}
-                    />
-
-                    <TextInput
-                      label="Password"
-                      value={password}
-                      onChangeText={(text) => {
-                        setPassword(text);
-                        setError('');
-                      }}
-                      mode="outlined"
-                      secureTextEntry={!showPassword}
-                      style={styles.input}
-                      theme={{
-                        colors: {
-                          primary: Colors.primary,
-                          onSurface: Colors.textPrimary,
-                          outline: Colors.border,
-                          surface: Colors.inputBackground,
-                        }
-                      }}
-                      textColor={Colors.textPrimary}
-                      left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
-                      right={
-                        <TextInput.Icon 
-                          icon={showPassword ? "eye-off" : "eye"} 
-                          iconColor={Colors.textMuted}
-                          onPress={() => setShowPassword(!showPassword)}
-                        />
-                      }
-                    />
-
-                    <TextInput
-                      label="Confirm Password"
-                      value={confirmPassword}
-                      onChangeText={(text) => {
-                        setConfirmPassword(text);
-                        setError('');
-                      }}
-                      mode="outlined"
-                      secureTextEntry={!showConfirmPassword}
-                      style={styles.input}
-                      theme={{
-                        colors: {
-                          primary: Colors.primary,
-                          onSurface: Colors.textPrimary,
-                          outline: Colors.border,
-                          surface: Colors.inputBackground,
-                        }
-                      }}
-                      textColor={Colors.textPrimary}
-                      left={<TextInput.Icon icon="lock-check" iconColor={Colors.textMuted} />}
-                      right={
-                        <TextInput.Icon 
-                          icon={showConfirmPassword ? "eye-off" : "eye"} 
-                          iconColor={Colors.textMuted}
-                          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        />
-                      }
-                    />
-                  </View>
-
-                  {error ? (
-                    <View style={styles.errorContainer}>
-                      <MaterialIcons name="error" size={20} color={Colors.error} />
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  ) : null}
-
-                  <Button
-                    mode="contained"
-                    onPress={handleRegister}
-                    loading={loading}
-                    disabled={loading}
-                    style={styles.registerButton}
-                    buttonColor={Colors.secondary}
-                    textColor={Colors.background}
-                    icon="account-plus"
-                    labelStyle={styles.buttonText}
-                  >
-                    {loading ? 'Creating Account...' : 'Create Demo Account'}
-                  </Button>
-                </View>
-              </LinearGradient>
-            </Card>
-
-            {/* Benefits Card */}
-            <Card style={styles.benefitsCard}>
-              <Card.Content style={styles.benefitsContent}>
-                <Text style={styles.benefitsTitle}>What you get:</Text>
-                
-                <View style={styles.benefitsList}>
-                  <View style={styles.benefitItem}>
-                    <MaterialIcons name="account-balance-wallet" size={20} color={Colors.bullish} />
-                    <Text style={styles.benefitText}>$10,000 virtual trading balance</Text>
-                  </View>
-                  
-                  <View style={styles.benefitItem}>
-                    <MaterialIcons name="trending-up" size={20} color={Colors.primary} />
-                    <Text style={styles.benefitText}>Real-time market data from TradingView</Text>
-                  </View>
-                  
-                  <View style={styles.benefitItem}>
-                    <MaterialIcons name="psychology" size={20} color={Colors.secondary} />
-                    <Text style={styles.benefitText}>AI-powered trading automation</Text>
-                  </View>
-                  
-                  <View style={styles.benefitItem}>
-                    <MaterialIcons name="bar-chart" size={20} color={Colors.accent} />
-                    <Text style={styles.benefitText}>Professional trading tools & charts</Text>
-                  </View>
-                  
-                  <View style={styles.benefitItem}>
-                    <MaterialIcons name="school" size={20} color={Colors.textSecondary} />
-                    <Text style={styles.benefitText}>Educational trading environment</Text>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                Already have an account?{' '}
-                <Text 
-                  style={styles.footerLink}
-                  onPress={() => router.push('/(auth)/signin')}
-                >
-                  Sign in here
-                </Text>
-              </Text>
-              
-              <Text style={styles.disclaimerText}>
-                By creating an account, you agree to use this demo platform for educational purposes only.
-                No real money transactions will be processed.
-              </Text>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient colors={Gradients.primary} style={styles.background}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Button
+              mode="text"
+              onPress={() => router.back()}
+              icon="arrow-left"
+              textColor={Colors.textSecondary}
+              style={styles.backButton}
+            >
+              Back
+            </Button>
+            
+            <View style={styles.headerContent}>
+              <MaterialIcons name="trending-up" size={48} color={Colors.primary} />
+              <Text style={styles.headerTitle}>Create Account</Text>
+              <Text style={styles.headerSubtitle}>Join thousands of successful traders</Text>
             </View>
           </View>
-        </ScrollView>
 
-        {/* Cross-platform Alert Modal */}
-        {Platform.OS === 'web' && (
-          <Modal visible={alertConfig.visible} transparent animationType="fade">
-            <View style={styles.alertOverlay}>
-              <View style={styles.alertContainer}>
-                <Text style={styles.alertTitle}>{alertConfig.title}</Text>
-                <Text style={styles.alertMessage}>{alertConfig.message}</Text>
-                <TouchableOpacity
-                  style={styles.alertButton}
-                  onPress={() => {
-                    alertConfig.onOk?.();
-                    setAlertConfig(prev => ({ ...prev, visible: false }));
-                  }}
+          {/* Registration Form */}
+          <Card style={styles.formCard}>
+            <Card.Content style={styles.formContent}>
+              <Text style={styles.formTitle}>Sign Up</Text>
+              
+              <View style={styles.form}>
+                <TextInput
+                  label="Full Name"
+                  value={name}
+                  onChangeText={setName}
+                  mode="outlined"
+                  autoCapitalize="words"
+                  left={<TextInput.Icon icon="account" />}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <TextInput
+                  label="Email Address"
+                  value={email}
+                  onChangeText={setEmail}
+                  mode="outlined"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  left={<TextInput.Icon icon="email" />}
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <TextInput
+                  label="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  mode="outlined"
+                  secureTextEntry={!showPassword}
+                  left={<TextInput.Icon icon="lock" />}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? "eye-off" : "eye"}
+                      onPress={() => setShowPassword(!showPassword)}
+                    />
+                  }
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <TextInput
+                  label="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  mode="outlined"
+                  secureTextEntry={!showConfirmPassword}
+                  left={<TextInput.Icon icon="lock-check" />}
+                  right={
+                    <TextInput.Icon
+                      icon={showConfirmPassword ? "eye-off" : "eye"}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    />
+                  }
+                  style={styles.input}
+                  disabled={loading}
+                />
+
+                <View style={styles.checkboxContainer}>
+                  <Checkbox
+                    status={acceptTerms ? 'checked' : 'unchecked'}
+                    onPress={() => setAcceptTerms(!acceptTerms)}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.checkboxText}>
+                    I accept the{' '}
+                    <Text style={styles.linkText}>Terms & Conditions</Text>
+                    {' '}and{' '}
+                    <Text style={styles.linkText}>Privacy Policy</Text>
+                  </Text>
+                </View>
+
+                <Button
+                  mode="contained"
+                  onPress={handleRegister}
+                  style={styles.signUpButton}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={styles.buttonLabel}
+                  loading={loading}
+                  disabled={loading}
+                  icon="account-plus"
                 >
-                  <Text style={styles.alertButtonText}>OK</Text>
-                </TouchableOpacity>
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <Button
+                  mode="outlined"
+                  onPress={handleGoogleSignUp}
+                  style={styles.googleButton}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={styles.googleButtonLabel}
+                  disabled={loading}
+                  icon="google"
+                >
+                  Continue with Google
+                </Button>
               </View>
-            </View>
-          </Modal>
-        )}
+
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>
+                  Already have an account?{' '}
+                  <Text 
+                    style={styles.footerLink}
+                    onPress={() => router.push('/(auth)/signin')}
+                  >
+                    Sign in
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Demo Info */}
+              <View style={styles.demoInfo}>
+                <MaterialIcons name="info" size={20} color={Colors.primary} />
+                <View style={styles.demoTextContainer}>
+                  <Text style={styles.demoTitle}>Demo Trading Account</Text>
+                  <Text style={styles.demoDescription}>
+                    Your account starts with demo trading. No real money required to get started.
+                  </Text>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -307,174 +229,145 @@ export default function SignUp() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
-  gradient: {
+  background: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 20,
   },
   header: {
-    marginBottom: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 24,
   },
   headerContent: {
     alignItems: 'center',
   },
-  title: {
+  headerTitle: {
     ...Typography.h3,
     color: Colors.textPrimary,
     fontWeight: '700',
+    marginTop: 16,
     marginBottom: 8,
   },
-  subtitle: {
+  headerSubtitle: {
     ...Typography.body1,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
   formCard: {
-    marginBottom: 20,
+    backgroundColor: Colors.surface + 'F0',
     borderRadius: 16,
     elevation: 8,
-  },
-  formGradient: {
-    borderRadius: 16,
+    marginBottom: 24,
   },
   formContent: {
     padding: 24,
   },
-  inputContainer: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  input: {
-    backgroundColor: Colors.inputBackground,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-    padding: 12,
-    backgroundColor: Colors.error + '15',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.error + '30',
-  },
-  errorText: {
-    ...Typography.body2,
-    color: Colors.error,
-    flex: 1,
-  },
-  registerButton: {
-    borderRadius: 12,
-    paddingVertical: 6,
-  },
-  buttonText: {
-    ...Typography.button,
-    fontSize: 16,
-  },
-  benefitsCard: {
-    backgroundColor: Colors.surface,
-    marginBottom: 24,
-  },
-  benefitsContent: {
-    paddingVertical: 16,
-  },
-  benefitsTitle: {
-    ...Typography.h6,
+  formTitle: {
+    ...Typography.h5,
     color: Colors.textPrimary,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 24,
+    textAlign: 'center',
   },
-  benefitsList: {
-    gap: 12,
+  form: {
+    gap: 16,
   },
-  benefitItem: {
+  input: {
+    backgroundColor: Colors.background,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    gap: 8,
+  },
+  checkboxText: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 20,
+  },
+  linkText: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  signUpButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  buttonContent: {
+    paddingVertical: 8,
+  },
+  buttonLabel: {
+    ...Typography.button,
+    color: Colors.background,
+    fontWeight: '600',
+  },
+  divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginVertical: 8,
   },
-  benefitText: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
+  dividerLine: {
     flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    ...Typography.body2,
+    color: Colors.textMuted,
+    marginHorizontal: 16,
+  },
+  googleButton: {
+    borderColor: Colors.border,
+    borderRadius: 12,
+  },
+  googleButtonLabel: {
+    ...Typography.button,
+    color: Colors.textPrimary,
+    fontWeight: '500',
   },
   footer: {
+    marginTop: 24,
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 20,
   },
   footerText: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    textAlign: 'center',
   },
   footerLink: {
     color: Colors.primary,
-    fontWeight: '500',
-  },
-  disclaimerText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 20,
-  },
-  // Cross-platform alert styles
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  alertContainer: {
-    backgroundColor: Colors.surface,
-    padding: 24,
-    borderRadius: 12,
-    minWidth: 300,
-    maxWidth: '90%',
-  },
-  alertTitle: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
     fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
   },
-  alertMessage: {
+  demoInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: Colors.primary + '15',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 12,
+  },
+  demoTextContainer: {
+    flex: 1,
+  },
+  demoTitle: {
+    ...Typography.body2,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  demoDescription: {
     ...Typography.body2,
     color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  alertButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'center',
-    minWidth: 80,
-  },
-  alertButtonText: {
-    ...Typography.body2,
-    color: Colors.background,
-    fontWeight: '500',
+    lineHeight: 18,
   },
 });
