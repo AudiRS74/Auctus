@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '../constants/Colors';
+import Colors from '../constants/Colors';
 import { Typography } from '../constants/Typography';
 
 interface LoadingScreenProps {
@@ -21,12 +21,12 @@ export function LoadingScreen({
         <MaterialIcons 
           name={icon as any} 
           size={64} 
-          color={Colors.primary} 
+          color={Colors.accent} 
           style={styles.icon} 
         />
         <ActivityIndicator 
           size="large" 
-          color={Colors.primary} 
+          color={Colors.accent} 
           style={styles.spinner}
         />
         <Text style={styles.message}>{message}</Text>
@@ -57,13 +57,13 @@ const styles = StyleSheet.create({
   },
   message: {
     ...Typography.h6,
-    color: Colors.textPrimary,
+    color: Colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   submessage: {
     ...Typography.body2,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
     textAlign: 'center',
   },
 });
