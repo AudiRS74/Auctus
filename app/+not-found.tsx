@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Colors from '../constants/Colors';
-import { Typography } from '../constants/Typography';
+import { TextStyles } from '../constants/Typography';
 
 export default function NotFound() {
   return (
@@ -68,14 +68,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   title: {
-    ...Typography.h3,
+    ...TextStyles.h3,
     color: Colors.textPrimary,
     fontWeight: '700',
     marginTop: 32,
     marginBottom: 16,
   },
   subtitle: {
-    ...Typography.body1,
+    ...TextStyles.body,
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   buttonText: {
-    ...Typography.button,
+    ...TextStyles.button,
     fontSize: 16,
   },
 });
