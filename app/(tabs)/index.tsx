@@ -8,7 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { SafeComponentWrapper } from '../../components/SafeComponentWrapper';
-import { Colors, Gradients } from '../../constants/Colors';
+import Colors, { Gradients } from '../../constants/Colors';
 import { Typography } from '../../constants/Typography';
 
 const { width } = Dimensions.get('window');
