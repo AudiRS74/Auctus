@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors } from '../../constants/Colors';
+import Colors from '../../constants/Colors';
 
 export default function AuthLayout() {
   const { isAuthenticated, user, loading } = useAuth();
