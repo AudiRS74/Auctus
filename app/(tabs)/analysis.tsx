@@ -1,403 +1,266 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, Chip, ProgressBar } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/Colors';
 import { useTrading } from '../../hooks/useTrading';
-import { Colors, Gradients } from '../../constants/Colors';
-import { Typography } from '../../constants/Typography';
-import { QUICK_ACCESS_SYMBOLS } from '../../constants/Markets';
 
-const { width } = Dimensions.get('window');
+export default function AnalysisScreen() {
+  const { 
+    indicators, 
+    selectedSymbol, 
+    setSelectedSymbol, 
+    updateIndicators,
+    getMarketData 
+  } = useTrading();
+  
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTimeframe, setActiveTimeframe] = useState('1H');
 
-interface AnalysisData {
-  trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
-  strength: number;
-  support: number;
-  resistance: number;
-  recommendation: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
-}
+  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'];
+  const timeframes = ['1M', '5M', '15M', '30M', '1H', '4H', '1D'];
 
-export default function Analysis() {
-  const { selectedSymbol, setSelectedSymbol, indicators, getMarketData } = useTrading();
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-
-  const symbols = QUICK_ACCESS_SYMBOLS;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await updateIndicators(selectedSymbol);
+    } catch (error) {
+      console.error('Analysis refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    loadAnalysisData();
-    const interval = setInterval(loadAnalysisData, 15000); // Update every 15 seconds
-    return () => clearInterval(interval);
+    updateIndicators(selectedSymbol);
   }, [selectedSymbol]);
 
-  const loadAnalysisData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Simulate analysis calculation delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Get market data if available
-      const marketData = getMarketData(selectedSymbol);
-      const currentPrice = marketData?.price || 1.0850;
-
-      // Generate mock analysis based on indicators
-      const rsi = indicators.rsi;
-      const macd = indicators.macd.signal;
-
-      // Determine trend
-      let trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
-      if (rsi > 60 && macd > 0) trend = 'BULLISH';
-      else if (rsi < 40 && macd < 0) trend = 'BEARISH';
-
-      // Calculate strength (0-100)
-      const strength = Math.max(0, Math.min(100, 
-        (Math.abs(rsi - 50) + Math.abs(macd * 10000)) * 2
-      ));
-
-      // Generate support and resistance levels
-      const variation = currentPrice * 0.005; // 0.5% variation
-      const support = Number((currentPrice - variation).toFixed(5));
-      const resistance = Number((currentPrice + variation).toFixed(5));
-
-      // Determine recommendation
-      let recommendation: AnalysisData['recommendation'] = 'HOLD';
-      if (rsi > 70 && strength > 80) recommendation = 'STRONG_BUY';
-      else if (rsi > 60 && strength > 60) recommendation = 'BUY';
-      else if (rsi < 30 && strength > 80) recommendation = 'STRONG_SELL';
-      else if (rsi < 40 && strength > 60) recommendation = 'SELL';
-
-      setAnalysisData({
-        trend,
-        strength: Number(strength.toFixed(1)),
-        support,
-        resistance,
-        recommendation,
-      });
-
-      setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Analysis loading error:', error);
-      setError('Failed to load analysis data');
-    } finally {
-      setLoading(false);
-    }
+  const getRSIColor = (rsi: number) => {
+    if (rsi >= 70) return Colors.bearish; // Overbought
+    if (rsi <= 30) return Colors.bullish; // Oversold
+    return Colors.textPrimary; // Neutral
   };
 
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'BULLISH': return Colors.bullish;
-      case 'BEARISH': return Colors.bearish;
-      default: return Colors.textMuted;
-    }
+  const getRSISignal = (rsi: number) => {
+    if (rsi >= 70) return 'SELL - Overbought';
+    if (rsi <= 30) return 'BUY - Oversold';
+    return 'NEUTRAL';
   };
 
-  const getRecommendationColor = (recommendation: string) => {
-    switch (recommendation) {
-      case 'STRONG_BUY': return Colors.bullish;
-      case 'BUY': return Colors.bullish;
-      case 'STRONG_SELL': return Colors.bearish;
-      case 'SELL': return Colors.bearish;
-      default: return Colors.textMuted;
+  const getMASignal = () => {
+    const marketData = getMarketData(selectedSymbol);
+    if (!marketData) return 'NO DATA';
+    
+    if (marketData.price > indicators.movingAverage) {
+      return 'BUY - Above MA';
+    } else if (marketData.price < indicators.movingAverage) {
+      return 'SELL - Below MA';
     }
+    return 'NEUTRAL';
   };
 
-  const formatRecommendation = (recommendation: string) => {
-    return recommendation.replace('_', ' ');
+  const getMACDSignal = () => {
+    const { signal, histogram } = indicators.macd;
+    if (signal > 0 && histogram > 0) return 'BUY - Bullish';
+    if (signal < 0 && histogram < 0) return 'SELL - Bearish';
+    return 'NEUTRAL';
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient
-        colors={Gradients.header}
-        style={styles.headerGradient}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
       >
+        {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Market Analysis</Text>
-            <Text style={styles.subtitle}>Advanced technical insights</Text>
-          </View>
-          <MaterialIcons name="analytics" size={28} color={Colors.primary} />
+          <Text style={styles.headerTitle}>Technical Analysis</Text>
+          <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
+            <MaterialIcons 
+              name="refresh" 
+              size={24} 
+              color={refreshing ? Colors.textMuted : Colors.primary} 
+            />
+          </TouchableOpacity>
         </View>
-      </LinearGradient>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Symbol Selection */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>Select Market</Text>
-              <MaterialIcons name="public" size={24} color={Colors.primary} />
-            </View>
-            
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={styles.symbolScroll}
-              contentContainerStyle={styles.symbolScrollContent}
-            >
-              {symbols.map((symbol) => (
-                <Chip
-                  key={symbol}
-                  selected={selectedSymbol === symbol}
-                  onPress={() => setSelectedSymbol(symbol)}
-                  style={[
-                    styles.symbolChip,
-                    selectedSymbol === symbol && styles.selectedSymbolChip
-                  ]}
-                  textStyle={[
-                    styles.symbolChipText,
-                    selectedSymbol === symbol && styles.selectedSymbolChipText
-                  ]}
-                  selectedColor={Colors.background}
-                >
+        {/* Symbol Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Symbol</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScroll}
+          >
+            {symbols.map((symbol) => (
+              <TouchableOpacity
+                key={symbol}
+                style={[
+                  styles.symbolButton,
+                  selectedSymbol === symbol && styles.symbolButtonActive
+                ]}
+                onPress={() => setSelectedSymbol(symbol)}
+              >
+                <Text style={[
+                  styles.symbolButtonText,
+                  selectedSymbol === symbol && styles.symbolButtonTextActive
+                ]}>
                   {symbol}
-                </Chip>
-              ))}
-            </ScrollView>
-          </Card.Content>
-        </Card>
-
-        {/* Loading State */}
-        {loading && (
-          <Card style={styles.card}>
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.loadingContainer}>
-                <MaterialIcons name="analytics" size={48} color={Colors.primary} />
-                <Text style={styles.loadingText}>Analyzing Market Data...</Text>
-                <Text style={styles.loadingSubtext}>Processing {selectedSymbol} indicators</Text>
-                <ProgressBar 
-                  progress={0.7} 
-                  color={Colors.primary} 
-                  style={styles.progressBar} 
-                />
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <Card style={styles.errorCard}>
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.errorContainer}>
-                <MaterialIcons name="error-outline" size={48} color={Colors.error} />
-                <Text style={styles.errorText}>Analysis Error</Text>
-                <Text style={styles.errorSubtext}>{error}</Text>
-                <Button
-                  mode="outlined"
-                  onPress={loadAnalysisData}
-                  style={styles.retryButton}
-                  textColor={Colors.primary}
-                  icon="refresh"
-                >
-                  Retry Analysis
-                </Button>
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Analysis Results */}
-        {analysisData && !loading && !error && (
-          <>
-            {/* Market Overview */}
-            <Card style={styles.overviewCard}>
-              <LinearGradient
-                colors={[Colors.primary + '15', Colors.surface]}
-                style={styles.overviewGradient}
-              >
-                <View style={styles.overviewHeader}>
-                  <View>
-                    <Text style={styles.overviewSymbol}>{selectedSymbol}</Text>
-                    <Text style={styles.lastUpdateText}>
-                      Last updated: {lastUpdate.toLocaleTimeString()}
-                    </Text>
-                  </View>
-                  <View style={styles.trendContainer}>
-                    <View style={[styles.trendBadge, { 
-                      backgroundColor: getTrendColor(analysisData.trend) + '20' 
-                    }]}>
-                      <MaterialIcons 
-                        name={
-                          analysisData.trend === 'BULLISH' ? 'trending-up' : 
-                          analysisData.trend === 'BEARISH' ? 'trending-down' : 'trending-flat'
-                        } 
-                        size={20} 
-                        color={getTrendColor(analysisData.trend)} 
-                      />
-                      <Text style={[styles.trendText, { 
-                        color: getTrendColor(analysisData.trend) 
-                      }]}>
-                        {analysisData.trend}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.strengthContainer}>
-                  <Text style={styles.strengthLabel}>Signal Strength</Text>
-                  <View style={styles.strengthBar}>
-                    <ProgressBar 
-                      progress={analysisData.strength / 100} 
-                      color={analysisData.strength > 70 ? Colors.bullish : 
-                             analysisData.strength > 40 ? Colors.primary : Colors.bearish}
-                      style={styles.strengthProgress} 
-                    />
-                    <Text style={styles.strengthValue}>{analysisData.strength}%</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Card>
-
-            {/* Key Levels */}
-            <Card style={styles.card}>
-              <Card.Content style={styles.cardContent}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.cardTitle}>Key Levels</Text>
-                  <MaterialIcons name="horizontal-rule" size={24} color={Colors.accent} />
-                </View>
-                
-                <View style={styles.levelsGrid}>
-                  <View style={styles.levelItem}>
-                    <View style={styles.levelHeader}>
-                      <MaterialIcons name="support" size={20} color={Colors.bullish} />
-                      <Text style={styles.levelLabel}>Support</Text>
-                    </View>
-                    <Text style={[styles.levelValue, { color: Colors.bullish }]}>
-                      {analysisData.support.toFixed(5)}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.levelDivider} />
-                  
-                  <View style={styles.levelItem}>
-                    <View style={styles.levelHeader}>
-                      <MaterialIcons name="trending-up" size={20} color={Colors.bearish} />
-                      <Text style={styles.levelLabel}>Resistance</Text>
-                    </View>
-                    <Text style={[styles.levelValue, { color: Colors.bearish }]}>
-                      {analysisData.resistance.toFixed(5)}
-                    </Text>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-
-            {/* Technical Indicators */}
-            <Card style={styles.card}>
-              <Card.Content style={styles.cardContent}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.cardTitle}>Technical Indicators</Text>
-                  <MaterialIcons name="speed" size={24} color={Colors.secondary} />
-                </View>
-                
-                <View style={styles.indicatorsContainer}>
-                  <View style={styles.indicatorRow}>
-                    <View style={styles.indicatorItem}>
-                      <Text style={styles.indicatorLabel}>RSI (14)</Text>
-                      <Text style={[styles.indicatorValue, { 
-                        color: indicators.rsi > 70 ? Colors.bearish : 
-                               indicators.rsi < 30 ? Colors.bullish : Colors.textPrimary 
-                      }]}>
-                        {indicators.rsi.toFixed(1)}
-                      </Text>
-                      <Text style={styles.indicatorSignal}>
-                        {indicators.rsi > 70 ? 'Overbought' : 
-                         indicators.rsi < 30 ? 'Oversold' : 'Neutral'}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.indicatorItem}>
-                      <Text style={styles.indicatorLabel}>MACD</Text>
-                      <Text style={[styles.indicatorValue, { 
-                        color: indicators.macd.signal > 0 ? Colors.bullish : Colors.bearish 
-                      }]}>
-                        {indicators.macd.signal.toFixed(5)}
-                      </Text>
-                      <Text style={styles.indicatorSignal}>
-                        {indicators.macd.signal > 0 ? 'Bullish' : 'Bearish'}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.indicatorRow}>
-                    <View style={styles.indicatorItem}>
-                      <Text style={styles.indicatorLabel}>Moving Average</Text>
-                      <Text style={styles.indicatorValue}>
-                        {indicators.movingAverage.toFixed(5)}
-                      </Text>
-                      <Text style={styles.indicatorSignal}>50 Period</Text>
-                    </View>
-                    
-                    <View style={styles.indicatorItem}>
-                      <Text style={styles.indicatorLabel}>Histogram</Text>
-                      <Text style={[styles.indicatorValue, { 
-                        color: indicators.macd.histogram > 0 ? Colors.bullish : Colors.bearish 
-                      }]}>
-                        {indicators.macd.histogram.toFixed(5)}
-                      </Text>
-                      <Text style={styles.indicatorSignal}>MACD</Text>
-                    </View>
-                  </View>
-                </View>
-              </Card.Content>
-            </Card>
-
-            {/* Trading Recommendation */}
-            <Card style={styles.recommendationCard}>
-              <LinearGradient
-                colors={[getRecommendationColor(analysisData.recommendation) + '15', Colors.surface]}
-                style={styles.recommendationGradient}
-              >
-                <View style={styles.recommendationHeader}>
-                  <MaterialIcons 
-                    name="lightbulb-outline" 
-                    size={32} 
-                    color={getRecommendationColor(analysisData.recommendation)} 
-                  />
-                  <View style={styles.recommendationContent}>
-                    <Text style={styles.recommendationTitle}>Trading Recommendation</Text>
-                    <Text style={[styles.recommendationValue, { 
-                      color: getRecommendationColor(analysisData.recommendation) 
-                    }]}>
-                      {formatRecommendation(analysisData.recommendation)}
-                    </Text>
-                  </View>
-                </View>
-                
-                <Text style={styles.recommendationNote}>
-                  Based on technical analysis of {selectedSymbol}. 
-                  This is educational content for demo trading only.
                 </Text>
-              </LinearGradient>
-            </Card>
-          </>
-        )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-        {/* Refresh Button */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Button
-              mode="contained"
-              onPress={loadAnalysisData}
-              loading={loading}
-              disabled={loading}
-              style={styles.refreshButton}
-              buttonColor={Colors.primary}
-              textColor={Colors.background}
-              icon="refresh"
-              labelStyle={styles.refreshButtonText}
-            >
-              {loading ? 'Analyzing...' : 'Refresh Analysis'}
-            </Button>
-          </Card.Content>
-        </Card>
+        {/* Timeframe Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Timeframe</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScroll}
+          >
+            {timeframes.map((timeframe) => (
+              <TouchableOpacity
+                key={timeframe}
+                style={[
+                  styles.timeframeButton,
+                  activeTimeframe === timeframe && styles.timeframeButtonActive
+                ]}
+                onPress={() => setActiveTimeframe(timeframe)}
+              >
+                <Text style={[
+                  styles.timeframeButtonText,
+                  activeTimeframe === timeframe && styles.timeframeButtonTextActive
+                ]}>
+                  {timeframe}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Technical Indicators */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Technical Indicators</Text>
+          
+          {/* RSI */}
+          <View style={styles.indicatorCard}>
+            <View style={styles.indicatorHeader}>
+              <Text style={styles.indicatorName}>RSI (14)</Text>
+              <Text style={[styles.indicatorValue, { color: getRSIColor(indicators.rsi) }]}>
+                {indicators.rsi.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.rsiBar}>
+              <View style={styles.rsiBarBackground}>
+                <View 
+                  style={[
+                    styles.rsiBarFill,
+                    { 
+                      width: `${indicators.rsi}%`,
+                      backgroundColor: getRSIColor(indicators.rsi)
+                    }
+                  ]} 
+                />
+                <View style={[styles.rsiLevel, { left: '30%' }]} />
+                <View style={[styles.rsiLevel, { left: '70%' }]} />
+              </View>
+            </View>
+            <Text style={[styles.indicatorSignal, { color: getRSIColor(indicators.rsi) }]}>
+              {getRSISignal(indicators.rsi)}
+            </Text>
+          </View>
+
+          {/* Moving Average */}
+          <View style={styles.indicatorCard}>
+            <View style={styles.indicatorHeader}>
+              <Text style={styles.indicatorName}>Moving Average (20)</Text>
+              <Text style={styles.indicatorValue}>
+                {indicators.movingAverage.toFixed(5)}
+              </Text>
+            </View>
+            <Text style={styles.indicatorSignal}>
+              {getMASignal()}
+            </Text>
+          </View>
+
+          {/* MACD */}
+          <View style={styles.indicatorCard}>
+            <View style={styles.indicatorHeader}>
+              <Text style={styles.indicatorName}>MACD (12,26,9)</Text>
+              <Text style={styles.indicatorValue}>
+                {indicators.macd.signal.toFixed(6)}
+              </Text>
+            </View>
+            <View style={styles.macdDetails}>
+              <Text style={styles.macdLabel}>Signal: {indicators.macd.signal.toFixed(6)}</Text>
+              <Text style={styles.macdLabel}>Histogram: {indicators.macd.histogram.toFixed(6)}</Text>
+            </View>
+            <Text style={styles.indicatorSignal}>
+              {getMACDSignal()}
+            </Text>
+          </View>
+
+          {/* Fibonacci Levels */}
+          <View style={styles.indicatorCard}>
+            <View style={styles.indicatorHeader}>
+              <Text style={styles.indicatorName}>Fibonacci Retracements</Text>
+            </View>
+            <View style={styles.fibonacciLevels}>
+              {indicators.fibonacciLevels.map((level, index) => (
+                <View key={index} style={styles.fibonacciLevel}>
+                  <Text style={styles.fibonacciLevelText}>{level.toFixed(3)}</Text>
+                  <Text style={styles.fibonacciPrice}>
+                    {(indicators.movingAverage * level).toFixed(5)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        {/* Market Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Market Summary</Text>
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <MaterialIcons name="trending-up" size={20} color={Colors.bullish} />
+              <Text style={styles.summaryText}>
+                Strong momentum detected on {selectedSymbol}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <MaterialIcons name="analytics" size={20} color={Colors.primary} />
+              <Text style={styles.summaryText}>
+                Multiple timeframe analysis available
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <MaterialIcons name="schedule" size={20} color={Colors.accent} />
+              <Text style={styles.summaryText}>
+                Last updated: {new Date().toLocaleTimeString()}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -408,276 +271,175 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerGradient: {
-    paddingBottom: 20,
+  scrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  title: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  card: {
-    marginBottom: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    elevation: 4,
-  },
-  cardContent: {
     paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    ...Typography.h6,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
-  symbolScroll: {
-    marginTop: 8,
+  section: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  symbolScrollContent: {
-    paddingRight: 16,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 16,
   },
-  symbolChip: {
+  horizontalScroll: {
+    flexGrow: 0,
+  },
+  symbolButton: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 12,
-    backgroundColor: Colors.cardElevated,
+    borderWidth: 1,
     borderColor: Colors.border,
   },
-  selectedSymbolChip: {
+  symbolButtonActive: {
     backgroundColor: Colors.primary,
-  },
-  symbolChipText: {
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  selectedSymbolChipText: {
-    color: Colors.background,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  loadingText: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  loadingSubtext: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginBottom: 24,
-  },
-  progressBar: {
-    width: width - 100,
-    height: 8,
-    borderRadius: 4,
-  },
-  errorCard: {
-    marginBottom: 16,
-    backgroundColor: Colors.error + '10',
-    borderRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: Colors.error + '30',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  errorText: {
-    ...Typography.h6,
-    color: Colors.error,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  retryButton: {
     borderColor: Colors.primary,
   },
-  overviewCard: {
-    marginBottom: 16,
-    borderRadius: 16,
-    elevation: 8,
+  symbolButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
-  overviewGradient: {
-    padding: 20,
-    borderRadius: 16,
+  symbolButtonTextActive: {
+    color: Colors.textPrimary,
   },
-  overviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  overviewSymbol: {
-    ...Typography.h4,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  lastUpdateText: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  trendContainer: {
-    alignItems: 'flex-end',
-  },
-  trendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  timeframeButton: {
+    backgroundColor: Colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    gap: 4,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  trendText: {
-    ...Typography.body2,
-    fontWeight: '600',
+  timeframeButtonActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
-  strengthContainer: {
-    marginTop: 8,
-  },
-  strengthLabel: {
-    ...Typography.body2,
+  timeframeButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: Colors.textSecondary,
-    marginBottom: 8,
   },
-  strengthBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  strengthProgress: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-  },
-  strengthValue: {
-    ...Typography.body2,
+  timeframeButtonTextActive: {
     color: Colors.textPrimary,
+  },
+  indicatorCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  indicatorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  indicatorName: {
+    fontSize: 16,
     fontWeight: '600',
-    minWidth: 40,
-  },
-  levelsGrid: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  levelItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  levelDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: Colors.border,
-    marginHorizontal: 20,
-  },
-  levelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 4,
-  },
-  levelLabel: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-  },
-  levelValue: {
-    ...Typography.h5,
-    fontWeight: '600',
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-  },
-  indicatorsContainer: {
-    gap: 20,
-  },
-  indicatorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  indicatorItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  indicatorLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 4,
+    color: Colors.textPrimary,
   },
   indicatorValue: {
-    ...Typography.h6,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    fontFamily: 'monospace',
   },
   indicatorSignal: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontSize: 10,
-    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.primary,
+    marginTop: 8,
   },
-  recommendationCard: {
-    marginBottom: 16,
-    borderRadius: 16,
-    elevation: 8,
+  rsiBar: {
+    marginVertical: 12,
   },
-  recommendationGradient: {
-    padding: 20,
-    borderRadius: 16,
+  rsiBarBackground: {
+    height: 6,
+    backgroundColor: Colors.border,
+    borderRadius: 3,
+    position: 'relative',
   },
-  recommendationHeader: {
+  rsiBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  rsiLevel: {
+    position: 'absolute',
+    top: -2,
+    width: 2,
+    height: 10,
+    backgroundColor: Colors.textMuted,
+  },
+  macdDetails: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 16,
+    justifyContent: 'space-between',
+    marginVertical: 8,
   },
-  recommendationContent: {
-    flex: 1,
-  },
-  recommendationTitle: {
-    ...Typography.body1,
+  macdLabel: {
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginBottom: 4,
+    fontFamily: 'monospace',
   },
-  recommendationValue: {
-    ...Typography.h5,
-    fontWeight: '700',
+  fibonacciLevels: {
+    marginTop: 12,
   },
-  recommendationNote: {
-    ...Typography.body2,
-    color: Colors.textMuted,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  refreshButton: {
-    borderRadius: 12,
+  fibonacciLevel: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  refreshButtonText: {
-    ...Typography.button,
-    fontSize: 16,
+  fibonacciLevelText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  fibonacciPrice: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+    fontFamily: 'monospace',
+  },
+  summaryCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginLeft: 12,
+  },
+  bottomPadding: {
+    height: 20,
   },
 });

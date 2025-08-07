@@ -1,165 +1,196 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput, Button, Card } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import { router } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Gradients } from '../../constants/Colors';
-import { Typography } from '../../constants/Typography';
 
-export default function SignIn() {
-  const { login, loginWithGoogle, loading } = useAuth();
-  const [email, setEmail] = useState('demo@trading.com');
-  const [password, setPassword] = useState('demo123');
+export default function SignInScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const { signIn } = useAuth();
+
+  const handleSignIn = async () => {
+    if (isLoading) return;
+
     try {
-      await login(email, password);
-      // Navigation is handled automatically by the auth routing logic
+      setIsLoading(true);
+
+      const result = await signIn(email, password);
+      
+      if (result.error) {
+        Alert.alert('Sign In Failed', result.error);
+      } else if (result.user) {
+        router.replace('/(tabs)');
+      }
     } catch (error) {
       Alert.alert(
-        'Login Failed',
-        error instanceof Error ? error.message : 'An error occurred during login',
-        [{ text: 'OK' }]
+        'Sign In Error',
+        error instanceof Error ? error.message : 'An unexpected error occurred'
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      await loginWithGoogle();
-      // Navigation is handled automatically by the auth routing logic
-    } catch (error) {
-      Alert.alert(
-        'Google Login Failed',
-        error instanceof Error ? error.message : 'An error occurred during Google login',
-        [{ text: 'OK' }]
-      );
-    }
+  const isFormValid = () => {
+    return email.trim().length > 0 && password.length > 0 && email.includes('@');
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient colors={Gradients.primary} style={styles.background}>
-        <ScrollView 
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
           <View style={styles.header}>
-            <Button
-              mode="text"
-              onPress={() => router.back()}
-              icon="arrow-left"
-              textColor={Colors.textSecondary}
+            <TouchableOpacity
               style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.8}
             >
-              Back
-            </Button>
+              <MaterialIcons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
             
-            <View style={styles.headerContent}>
-              <MaterialIcons name="trending-up" size={48} color={Colors.primary} />
-              <Text style={styles.headerTitle}>Welcome Back</Text>
-              <Text style={styles.headerSubtitle}>Sign in to your trading account</Text>
-            </View>
+            <Text style={styles.title}>Sign In</Text>
+            <Text style={styles.subtitle}>Welcome back to TradingPro</Text>
           </View>
 
-          {/* Login Form */}
-          <Card style={styles.formCard}>
-            <Card.Content style={styles.formContent}>
-              <Text style={styles.formTitle}>Sign In</Text>
-              
-              <View style={styles.form}>
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={styles.inputWrapper}>
+                <MaterialIcons
+                  name="email"
+                  size={20}
+                  color={Colors.textSecondary}
+                  style={styles.inputIcon}
+                />
                 <TextInput
-                  label="Email Address"
+                  style={styles.input}
                   value={email}
                   onChangeText={setEmail}
-                  mode="outlined"
+                  placeholder="Enter your email"
+                  placeholderTextColor={Colors.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  left={<TextInput.Icon icon="email" />}
-                  style={styles.input}
-                  disabled={loading}
+                  autoCorrect={false}
+                  autoComplete="email"
                 />
+              </View>
+            </View>
 
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <MaterialIcons
+                  name="lock"
+                  size={20}
+                  color={Colors.textSecondary}
+                  style={styles.inputIcon}
+                />
                 <TextInput
-                  label="Password"
+                  style={[styles.input, { flex: 1 }]}
                   value={password}
                   onChangeText={setPassword}
-                  mode="outlined"
+                  placeholder="Enter your password"
+                  placeholderTextColor={Colors.textMuted}
                   secureTextEntry={!showPassword}
-                  left={<TextInput.Icon icon="lock" />}
-                  right={
-                    <TextInput.Icon
-                      icon={showPassword ? "eye-off" : "eye"}
-                      onPress={() => setShowPassword(!showPassword)}
-                    />
-                  }
-                  style={styles.input}
-                  disabled={loading}
+                  autoComplete="password"
                 />
-
-                <Button
-                  mode="contained"
-                  onPress={handleLogin}
-                  style={styles.loginButton}
-                  contentStyle={styles.buttonContent}
-                  labelStyle={styles.buttonLabel}
-                  loading={loading}
-                  disabled={loading}
-                  icon="login"
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
                 >
-                  {loading ? 'Signing In...' : 'Sign In'}
-                </Button>
+                  <MaterialIcons
+                    name={showPassword ? "visibility" : "visibility-off"}
+                    size={20}
+                    color={Colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
+            <TouchableOpacity
+              style={[
+                styles.signInButton,
+                (!isFormValid() || isLoading) && styles.disabledButton
+              ]}
+              onPress={handleSignIn}
+              disabled={!isFormValid() || isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <MaterialIcons 
+                    name="hourglass-empty" 
+                    size={20} 
+                    color={Colors.textPrimary} 
+                  />
+                  <Text style={styles.buttonText}>Signing In...</Text>
                 </View>
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
 
-                <Button
-                  mode="outlined"
-                  onPress={handleGoogleLogin}
-                  style={styles.googleButton}
-                  contentStyle={styles.buttonContent}
-                  labelStyle={styles.googleButtonLabel}
-                  disabled={loading}
-                  icon="google"
-                >
-                  Continue with Google
-                </Button>
-              </View>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>
-                  Don't have an account?{' '}
-                  <Text 
-                    style={styles.footerLink}
-                    onPress={() => router.push('/(auth)/signup')}
-                  >
-                    Sign up
-                  </Text>
-                </Text>
-              </View>
+            <TouchableOpacity
+              style={styles.demoButton}
+              onPress={() => {
+                setEmail('demo@tradingpro.com');
+                setPassword('demo123');
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name="play-circle-outline"
+                size={20}
+                color={Colors.primary}
+              />
+              <Text style={styles.demoButtonText}>Try Demo Account</Text>
+            </TouchableOpacity>
+          </View>
 
-              {/* Demo Info */}
-              <View style={styles.demoInfo}>
-                <MaterialIcons name="info" size={20} color={Colors.primary} />
-                <View style={styles.demoTextContainer}>
-                  <Text style={styles.demoTitle}>Demo Mode</Text>
-                  <Text style={styles.demoDescription}>
-                    Use any email (demo@trading.com) and password (6+ chars) to try the app
-                  </Text>
-                </View>
-              </View>
-            </Card.Content>
-          </Card>
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Don't have an account?{' '}
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/signup')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.footerLink}>Create one</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
-      </LinearGradient>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -167,76 +198,101 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
-  background: {
+  keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   header: {
     paddingTop: 20,
-    paddingBottom: 40,
+    marginBottom: 40,
   },
   backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 24,
-  },
-  headerContent: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  headerTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
+  title: {
+    fontSize: 28,
     fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    ...Typography.body1,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  formCard: {
-    backgroundColor: Colors.surface + 'F0',
-    borderRadius: 16,
-    elevation: 8,
-    marginBottom: 24,
-  },
-  formContent: {
-    padding: 24,
-  },
-  formTitle: {
-    ...Typography.h5,
     color: Colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    lineHeight: 22,
   },
   form: {
-    gap: 16,
+    flex: 1,
+    gap: 20,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputIcon: {
+    marginRight: 12,
   },
   input: {
-    backgroundColor: Colors.background,
+    flex: 1,
+    fontSize: 16,
+    color: Colors.textPrimary,
+    paddingVertical: 4,
   },
-  loginButton: {
+  eyeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  signInButton: {
     backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    minHeight: 56,
   },
-  buttonContent: {
-    paddingVertical: 8,
+  disabledButton: {
+    backgroundColor: Colors.textMuted,
+    opacity: 0.5,
   },
-  buttonLabel: {
-    ...Typography.button,
-    color: Colors.background,
+  buttonText: {
+    fontSize: 16,
     fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 20,
   },
   dividerLine: {
     flex: 1,
@@ -244,52 +300,41 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   dividerText: {
-    ...Typography.body2,
-    color: Colors.textMuted,
-    marginHorizontal: 16,
+    fontSize: 14,
+    color: Colors.textSecondary,
+    paddingHorizontal: 16,
   },
-  googleButton: {
-    borderColor: Colors.border,
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
+    gap: 8,
   },
-  googleButtonLabel: {
-    ...Typography.button,
-    color: Colors.textPrimary,
+  demoButtonText: {
+    fontSize: 16,
     fontWeight: '500',
+    color: Colors.primary,
   },
   footer: {
-    marginTop: 24,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginTop: 20,
   },
   footerText: {
-    ...Typography.body2,
+    fontSize: 14,
     color: Colors.textSecondary,
   },
   footerLink: {
+    fontSize: 14,
+    fontWeight: '500',
     color: Colors.primary,
-    fontWeight: '600',
-  },
-  demoInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: Colors.primary + '15',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 24,
-    gap: 12,
-  },
-  demoTextContainer: {
-    flex: 1,
-  },
-  demoTitle: {
-    ...Typography.body2,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  demoDescription: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    lineHeight: 18,
   },
 });

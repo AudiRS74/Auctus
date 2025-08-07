@@ -1,462 +1,468 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Modal, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, TextInput, Switch, Divider } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Switch,
+  Alert,
+  Modal,
+  Platform,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useTrading } from '../../hooks/useTrading';
-import { Colors, Gradients } from '../../constants/Colors';
-import { Typography } from '../../constants/Typography';
 
-export default function Settings() {
-  const { user, logout, updateProfile } = useAuth();
-  const { mt5Config, connectMT5, disconnectMT5, isConnecting, connectionError } = useTrading();
+export default function SettingsScreen() {
+  const { user, signOut, updateProfile } = useAuth();
+  const { 
+    mt5Config, 
+    connectMT5, 
+    disconnectMT5, 
+    isConnecting, 
+    connectionError 
+  } = useTrading();
   
-  // MT5 connection form state
-  const [mt5Server, setMT5Server] = useState(mt5Config.server || '');
-  const [mt5Login, setMT5Login] = useState(mt5Config.login || '');
-  const [mt5Password, setMT5Password] = useState(mt5Config.password || '');
-  const [showMT5Form, setShowMT5Form] = useState(!mt5Config.connected);
-  
-  // Profile form state
-  const [profileName, setProfileName] = useState(user?.name || '');
-  const [profileEmail, setProfileEmail] = useState(user?.email || '');
-  
-  // App settings state
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showMT5Modal, setShowMT5Modal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [mt5Form, setMT5Form] = useState({
+    server: mt5Config.server || '',
+    login: mt5Config.login || '',
+    password: '',
+  });
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+  });
 
-  // Cross-platform alert state
-  const [alertConfig, setAlertConfig] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    onOk?: () => void;
-  }>({ visible: false, title: '', message: '' });
-
-  const showAlert = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === 'web') {
-      setAlertConfig({ visible: true, title, message, onOk });
-    } else {
-      const Alert = require('react-native').Alert;
-      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      setProfileName(user.name);
-      setProfileEmail(user.email);
-    }
-  }, [user]);
+  // App preferences
+  const [preferences, setPreferences] = useState({
+    notifications: true,
+    autoTrading: true,
+    darkMode: true,
+    soundEnabled: true,
+    priceAlerts: true,
+  });
 
   const handleMT5Connect = async () => {
-    if (!mt5Server.trim() || !mt5Login.trim() || !mt5Password.trim()) {
-      showAlert('Missing Information', 'Please fill in all MT5 connection fields');
+    if (!mt5Form.server.trim() || !mt5Form.login.trim() || !mt5Form.password.trim()) {
+      Alert.alert('Error', 'Please fill in all MT5 connection details');
       return;
     }
 
     try {
       await connectMT5({
-        server: mt5Server.trim(),
-        login: mt5Login.trim(),
-        password: mt5Password.trim(),
+        server: mt5Form.server,
+        login: mt5Form.login,
+        password: mt5Form.password,
       });
       
-      setShowMT5Form(false);
-      showAlert('Connection Successful', 'Successfully connected to MT5 demo server');
+      setShowMT5Modal(false);
+      Alert.alert('Success', 'Connected to MT5 successfully!');
+      
+      // Clear password for security
+      setMT5Form(prev => ({ ...prev, password: '' }));
     } catch (error) {
-      console.error('MT5 connection error:', error);
-      // Error is already handled by the trading provider
+      Alert.alert(
+        'Connection Failed',
+        error instanceof Error ? error.message : 'Failed to connect to MT5'
+      );
     }
   };
 
   const handleMT5Disconnect = () => {
-    showAlert(
+    Alert.alert(
       'Disconnect MT5',
-      'Are you sure you want to disconnect from MT5? This will stop all real-time data feeds.',
-      () => {
-        disconnectMT5();
-        setShowMT5Form(true);
-        showAlert('Disconnected', 'Successfully disconnected from MT5');
-      }
+      'Are you sure you want to disconnect from MT5?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: () => {
+            disconnectMT5();
+            setMT5Form({ server: '', login: '', password: '' });
+          },
+        },
+      ]
     );
   };
 
   const handleUpdateProfile = async () => {
-    if (!profileName.trim() || !profileEmail.trim()) {
-      showAlert('Missing Information', 'Please fill in all profile fields');
+    if (!profileForm.name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
       return;
     }
 
     try {
       await updateProfile({
-        name: profileName.trim(),
-        email: profileEmail.trim(),
+        name: profileForm.name,
+        email: profileForm.email,
       });
-      showAlert('Profile Updated', 'Your profile has been updated successfully');
+      
+      setShowProfileModal(false);
+      Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
-      console.error('Profile update error:', error);
-      showAlert('Update Failed', 'Failed to update profile. Please try again.');
+      Alert.alert(
+        'Update Failed',
+        error instanceof Error ? error.message : 'Failed to update profile'
+      );
     }
   };
 
-  const handleLogout = () => {
-    showAlert(
+  const handleSignOut = () => {
+    Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',
-      async () => {
-        await logout();
-        router.replace('/(auth)');
-      }
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/(auth)');
+          },
+        },
+      ]
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient
-        colors={Gradients.header}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Settings</Text>
-            <Text style={styles.subtitle}>Configure your trading environment</Text>
-          </View>
-          <MaterialIcons name="settings" size={28} color={Colors.primary} />
-        </View>
-      </LinearGradient>
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      // Use a simple web alert for demo
+      alert(`${title}: ${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* MT5 Connection */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.cardTitle}>MT5 Connection</Text>
-              <View style={[styles.connectionStatus, { 
-                backgroundColor: mt5Config.connected ? Colors.bullish + '20' : Colors.bearish + '20' 
-              }]}>
-                <MaterialIcons 
-                  name={mt5Config.connected ? "cloud-done" : "cloud-off"} 
-                  size={16} 
-                  color={mt5Config.connected ? Colors.bullish : Colors.bearish} 
-                />
-                <Text style={[styles.connectionStatusText, { 
-                  color: mt5Config.connected ? Colors.bullish : Colors.bearish 
-                }]}>
-                  {mt5Config.connected ? 'Connected' : 'Disconnected'}
-                </Text>
-              </View>
+  const MT5ConnectionModal = () => (
+    <Modal
+      visible={showMT5Modal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowMT5Modal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>MT5 Connection</Text>
+            <TouchableOpacity 
+              onPress={() => setShowMT5Modal(false)}
+              style={styles.modalCloseButton}
+            >
+              <MaterialIcons name="close" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Server</Text>
+              <TextInput
+                style={styles.textInput}
+                value={mt5Form.server}
+                onChangeText={(text) => setMT5Form(prev => ({ ...prev, server: text }))}
+                placeholder="e.g. Demo-Server, Live-Server"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
             </View>
 
-            {mt5Config.connected && !showMT5Form ? (
-              <View style={styles.connectedInfo}>
-                <View style={styles.connectionDetails}>
-                  <View style={styles.connectionDetail}>
-                    <Text style={styles.detailLabel}>Server:</Text>
-                    <Text style={styles.detailValue}>{mt5Config.server}</Text>
-                  </View>
-                  <View style={styles.connectionDetail}>
-                    <Text style={styles.detailLabel}>Account:</Text>
-                    <Text style={styles.detailValue}>{mt5Config.login}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.connectionActions}>
-                  <Button
-                    mode="outlined"
-                    onPress={() => setShowMT5Form(true)}
-                    style={styles.editButton}
-                    textColor={Colors.primary}
-                    icon="edit"
-                    compact
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    mode="contained"
-                    onPress={handleMT5Disconnect}
-                    style={styles.disconnectButton}
-                    buttonColor={Colors.bearish}
-                    icon="cloud-off"
-                    compact
-                  >
-                    Disconnect
-                  </Button>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.mt5Form}>
-                <Text style={styles.formDescription}>
-                  Connect to your MT5 demo account for live trading simulation and real-time market data.
-                </Text>
-                
-                <TextInput
-                  label="Server Name"
-                  value={mt5Server}
-                  onChangeText={setMT5Server}
-                  mode="outlined"
-                  style={styles.input}
-                  placeholder="e.g., MetaQuotes-Demo"
-                  theme={{
-                    colors: {
-                      primary: Colors.primary,
-                      onSurface: Colors.textPrimary,
-                      outline: Colors.border,
-                      surface: Colors.inputBackground,
-                    }
-                  }}
-                  textColor={Colors.textPrimary}
-                  left={<TextInput.Icon icon="server" iconColor={Colors.textMuted} />}
-                />
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Account Number</Text>
+              <TextInput
+                style={styles.textInput}
+                value={mt5Form.login}
+                onChangeText={(text) => setMT5Form(prev => ({ ...prev, login: text }))}
+                placeholder="Your MT5 account number"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-                <TextInput
-                  label="Account Number"
-                  value={mt5Login}
-                  onChangeText={setMT5Login}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={styles.input}
-                  placeholder="Your MT5 account number"
-                  theme={{
-                    colors: {
-                      primary: Colors.primary,
-                      onSurface: Colors.textPrimary,
-                      outline: Colors.border,
-                      surface: Colors.inputBackground,
-                    }
-                  }}
-                  textColor={Colors.textPrimary}
-                  left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
-                />
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput
+                style={styles.textInput}
+                value={mt5Form.password}
+                onChangeText={(text) => setMT5Form(prev => ({ ...prev, password: text }))}
+                placeholder="Your MT5 password"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-                <TextInput
-                  label="Password"
-                  value={mt5Password}
-                  onChangeText={setMT5Password}
-                  mode="outlined"
-                  secureTextEntry
-                  style={styles.input}
-                  placeholder="Your MT5 account password"
-                  theme={{
-                    colors: {
-                      primary: Colors.primary,
-                      onSurface: Colors.textPrimary,
-                      outline: Colors.border,
-                      surface: Colors.inputBackground,
-                    }
-                  }}
-                  textColor={Colors.textPrimary}
-                  left={<TextInput.Icon icon="lock" iconColor={Colors.textMuted} />}
-                />
-
-                {connectionError && (
-                  <View style={styles.errorContainer}>
-                    <MaterialIcons name="error" size={20} color={Colors.error} />
-                    <Text style={styles.errorText}>{connectionError}</Text>
-                  </View>
-                )}
-
-                <Button
-                  mode="contained"
-                  onPress={handleMT5Connect}
-                  loading={isConnecting}
-                  disabled={isConnecting}
-                  style={styles.connectButton}
-                  buttonColor={Colors.primary}
-                  textColor={Colors.background}
-                  icon="cloud-upload"
-                  labelStyle={styles.buttonText}
-                >
-                  {isConnecting ? 'Connecting...' : 'Connect to MT5'}
-                </Button>
+            {connectionError && (
+              <View style={styles.errorContainer}>
+                <MaterialIcons name="error-outline" size={16} color={Colors.error} />
+                <Text style={styles.errorText}>{connectionError}</Text>
               </View>
             )}
-          </Card.Content>
-        </Card>
 
-        {/* Profile Settings */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Profile Information</Text>
-            
-            <TextInput
-              label="Full Name"
-              value={profileName}
-              onChangeText={setProfileName}
-              mode="outlined"
-              style={styles.input}
-              theme={{
-                colors: {
-                  primary: Colors.primary,
-                  onSurface: Colors.textPrimary,
-                  outline: Colors.border,
-                  surface: Colors.inputBackground,
-                }
-              }}
-              textColor={Colors.textPrimary}
-              left={<TextInput.Icon icon="account" iconColor={Colors.textMuted} />}
-            />
+            <TouchableOpacity
+              style={[styles.primaryButton, isConnecting && styles.disabledButton]}
+              onPress={handleMT5Connect}
+              disabled={isConnecting}
+            >
+              <Text style={styles.buttonText}>
+                {isConnecting ? 'Connecting...' : 'Connect'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
-            <TextInput
-              label="Email"
-              value={profileEmail}
-              onChangeText={setProfileEmail}
-              mode="outlined"
-              keyboardType="email-address"
-              style={styles.input}
-              theme={{
-                colors: {
-                  primary: Colors.primary,
-                  onSurface: Colors.textPrimary,
-                  outline: Colors.border,
-                  surface: Colors.inputBackground,
-                }
-              }}
-              textColor={Colors.textPrimary}
-              left={<TextInput.Icon icon="email" iconColor={Colors.textMuted} />}
-            />
+  const ProfileModal = () => (
+    <Modal
+      visible={showProfileModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowProfileModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TouchableOpacity 
+              onPress={() => setShowProfileModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <MaterialIcons name="close" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
 
-            <Button
-              mode="contained"
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Full Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={profileForm.name}
+                onChangeText={(text) => setProfileForm(prev => ({ ...prev, name: text }))}
+                placeholder="Enter your full name"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={[styles.textInput, styles.disabledInput]}
+                value={profileForm.email}
+                placeholder="Email address"
+                placeholderTextColor={Colors.textMuted}
+                editable={false}
+              />
+              <Text style={styles.helpText}>Email cannot be changed</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
               onPress={handleUpdateProfile}
-              style={styles.updateButton}
-              buttonColor={Colors.secondary}
-              textColor={Colors.background}
-              icon="content-save"
-              labelStyle={styles.buttonText}
             >
-              Update Profile
-            </Button>
-          </Card.Content>
-        </Card>
+              <Text style={styles.buttonText}>Update Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
-        {/* App Settings */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Application Settings</Text>
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Settings</Text>
+        </View>
+
+        {/* Profile Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Profile</Text>
+          
+          <View style={styles.profileCard}>
+            <View style={styles.profileInfo}>
+              <MaterialIcons name="account-circle" size={48} color={Colors.primary} />
+              <View style={styles.profileDetails}>
+                <Text style={styles.profileName}>{user?.name || 'User'}</Text>
+                <Text style={styles.profileEmail}>{user?.email || 'user@example.com'}</Text>
+              </View>
+            </View>
             
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingDescription}>Receive trading alerts and market updates</Text>
-              </View>
-              <Switch
-                value={notifications}
-                onValueChange={setNotifications}
-                thumbColor={notifications ? Colors.primary : Colors.textMuted}
-                trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
-              />
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Dark Mode</Text>
-                <Text style={styles.settingDescription}>Use dark theme for better low-light viewing</Text>
-              </View>
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                thumbColor={darkMode ? Colors.primary : Colors.textMuted}
-                trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
-              />
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Auto Refresh</Text>
-                <Text style={styles.settingDescription}>Automatically refresh market data</Text>
-              </View>
-              <Switch
-                value={autoRefresh}
-                onValueChange={setAutoRefresh}
-                thumbColor={autoRefresh ? Colors.primary : Colors.textMuted}
-                trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
-              />
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Account Actions */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Account Actions</Text>
-            
-            <Button
-              mode="outlined"
-              onPress={() => router.push('/(auth)')}
-              style={styles.actionButton}
-              textColor={Colors.secondary}
-              icon="login"
-              labelStyle={styles.buttonText}
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setShowProfileModal(true)}
             >
-              Switch Account
-            </Button>
+              <MaterialIcons name="edit" size={16} color={Colors.primary} />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-            <Button
-              mode="contained"
-              onPress={handleLogout}
-              style={[styles.actionButton, styles.logoutButton]}
-              buttonColor={Colors.bearish}
-              textColor={Colors.background}
-              icon="logout"
-              labelStyle={styles.buttonText}
-            >
-              Sign Out
-            </Button>
-          </Card.Content>
-        </Card>
-
-        {/* App Information */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text style={styles.cardTitle}>App Information</Text>
-            
-            <View style={styles.appInfo}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Version:</Text>
-                <Text style={styles.infoValue}>1.0.0 (Demo)</Text>
+        {/* MT5 Connection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>MT5 Connection</Text>
+          
+          <View style={styles.connectionCard}>
+            <View style={styles.connectionHeader}>
+              <View style={styles.connectionInfo}>
+                <MaterialIcons name="cloud" size={24} color={Colors.textSecondary} />
+                <View style={styles.connectionDetails}>
+                  <Text style={styles.connectionTitle}>MetaTrader 5</Text>
+                  <Text style={styles.connectionStatus}>
+                    {mt5Config.connected ? `Connected to ${mt5Config.server}` : 'Not connected'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Platform:</Text>
-                <Text style={styles.infoValue}>{Platform.OS.toUpperCase()}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Build:</Text>
-                <Text style={styles.infoValue}>Demo Build</Text>
-              </View>
+              
+              <View style={[
+                styles.connectionIndicator,
+                { backgroundColor: mt5Config.connected ? Colors.bullish : Colors.bearish }
+              ]} />
             </View>
-          </Card.Content>
-        </Card>
-      </ScrollView>
-
-      {/* Cross-platform Alert Modal */}
-      {Platform.OS === 'web' && (
-        <Modal visible={alertConfig.visible} transparent animationType="fade">
-          <View style={styles.alertOverlay}>
-            <View style={styles.alertContainer}>
-              <Text style={styles.alertTitle}>{alertConfig.title}</Text>
-              <Text style={styles.alertMessage}>{alertConfig.message}</Text>
-              <TouchableOpacity
-                style={styles.alertButton}
-                onPress={() => {
-                  alertConfig.onOk?.();
-                  setAlertConfig(prev => ({ ...prev, visible: false }));
-                }}
-              >
-                <Text style={styles.alertButtonText}>OK</Text>
-              </TouchableOpacity>
+            
+            <View style={styles.connectionActions}>
+              {mt5Config.connected ? (
+                <TouchableOpacity
+                  style={styles.disconnectButton}
+                  onPress={handleMT5Disconnect}
+                >
+                  <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.connectButton}
+                  onPress={() => setShowMT5Modal(true)}
+                >
+                  <Text style={styles.connectButtonText}>Connect</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
-        </Modal>
-      )}
+        </View>
+
+        {/* App Preferences */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          
+          <View style={styles.preferencesCard}>
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <MaterialIcons name="notifications" size={20} color={Colors.textSecondary} />
+                <Text style={styles.preferenceLabel}>Push Notifications</Text>
+              </View>
+              <Switch
+                value={preferences.notifications}
+                onValueChange={(value) => setPreferences(prev => ({ ...prev, notifications: value }))}
+                trackColor={{ false: Colors.textMuted, true: Colors.primary }}
+                thumbColor={preferences.notifications ? Colors.textPrimary : Colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <MaterialIcons name="smart-toy" size={20} color={Colors.textSecondary} />
+                <Text style={styles.preferenceLabel}>Auto Trading</Text>
+              </View>
+              <Switch
+                value={preferences.autoTrading}
+                onValueChange={(value) => setPreferences(prev => ({ ...prev, autoTrading: value }))}
+                trackColor={{ false: Colors.textMuted, true: Colors.primary }}
+                thumbColor={preferences.autoTrading ? Colors.textPrimary : Colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <MaterialIcons name="volume-up" size={20} color={Colors.textSecondary} />
+                <Text style={styles.preferenceLabel}>Sound Effects</Text>
+              </View>
+              <Switch
+                value={preferences.soundEnabled}
+                onValueChange={(value) => setPreferences(prev => ({ ...prev, soundEnabled: value }))}
+                trackColor={{ false: Colors.textMuted, true: Colors.primary }}
+                thumbColor={preferences.soundEnabled ? Colors.textPrimary : Colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <MaterialIcons name="notification-important" size={20} color={Colors.textSecondary} />
+                <Text style={styles.preferenceLabel}>Price Alerts</Text>
+              </View>
+              <Switch
+                value={preferences.priceAlerts}
+                onValueChange={(value) => setPreferences(prev => ({ ...prev, priceAlerts: value }))}
+                trackColor={{ false: Colors.textMuted, true: Colors.primary }}
+                thumbColor={preferences.priceAlerts ? Colors.textPrimary : Colors.textSecondary}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* About Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
+          
+          <View style={styles.aboutCard}>
+            <TouchableOpacity 
+              style={styles.aboutItem}
+              onPress={() => showAlert('App Version', 'TradingPro v1.0.0')}
+            >
+              <MaterialIcons name="info" size={20} color={Colors.textSecondary} />
+              <Text style={styles.aboutLabel}>Version</Text>
+              <Text style={styles.aboutValue}>1.0.0</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.aboutItem}
+              onPress={() => showAlert('Privacy Policy', 'View our privacy policy at tradingpro.com/privacy')}
+            >
+              <MaterialIcons name="privacy-tip" size={20} color={Colors.textSecondary} />
+              <Text style={styles.aboutLabel}>Privacy Policy</Text>
+              <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.aboutItem}
+              onPress={() => showAlert('Terms of Service', 'View our terms at tradingpro.com/terms')}
+            >
+              <MaterialIcons name="description" size={20} color={Colors.textSecondary} />
+              <Text style={styles.aboutLabel}>Terms of Service</Text>
+              <MaterialIcons name="chevron-right" size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sign Out */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+          >
+            <MaterialIcons name="logout" size={20} color={Colors.error} />
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      <MT5ConnectionModal />
+      <ProfileModal />
     </SafeAreaView>
   );
 }
@@ -466,227 +472,288 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerGradient: {
-    paddingBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  title: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 16,
   },
-  card: {
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  section: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
     marginBottom: 16,
+  },
+  profileCard: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    elevation: 4,
-  },
-  cardContent: {
-    paddingVertical: 20,
-  },
-  sectionHeader: {
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
   },
-  cardTitle: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
-  connectionStatus: {
+  profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    flex: 1,
   },
-  connectionStatusText: {
-    ...Typography.caption,
+  profileDetails: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
     fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
   },
-  connectedInfo: {
-    gap: 16,
-  },
-  connectionDetails: {
-    gap: 8,
-  },
-  connectionDetail: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.background,
-    borderRadius: 8,
-  },
-  detailLabel: {
-    ...Typography.body2,
+  profileEmail: {
+    fontSize: 14,
     color: Colors.textSecondary,
   },
-  detailValue: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.primary + '20',
+    gap: 4,
+  },
+  editButtonText: {
+    fontSize: 14,
     fontWeight: '500',
+    color: Colors.primary,
+  },
+  connectionCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  connectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  connectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  connectionDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  connectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  connectionStatus: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  connectionIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   connectionActions: {
     flexDirection: 'row',
     gap: 12,
   },
-  editButton: {
-    flex: 1,
-    borderColor: Colors.primary,
+  connectButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  connectButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   disconnectButton: {
+    backgroundColor: Colors.error,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  disconnectButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  preferencesCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  preferenceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  preferenceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  mt5Form: {
-    gap: 16,
+  preferenceLabel: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+    marginLeft: 12,
   },
-  formDescription: {
-    ...Typography.body2,
+  aboutCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  aboutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  aboutLabel: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+    marginLeft: 12,
+    flex: 1,
+  },
+  aboutValue: {
+    fontSize: 14,
     color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 8,
   },
-  input: {
-    backgroundColor: Colors.inputBackground,
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    gap: 8,
+  },
+  signOutButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.error,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  form: {
+    gap: 20,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  textInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    fontSize: 16,
+    color: Colors.textPrimary,
+  },
+  disabledInput: {
+    opacity: 0.6,
+    backgroundColor: Colors.border,
+  },
+  helpText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 4,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: Colors.error + '15',
+    backgroundColor: Colors.error + '20',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.error + '30',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
   },
   errorText: {
-    ...Typography.body2,
+    fontSize: 14,
     color: Colors.error,
     flex: 1,
   },
-  connectButton: {
-    borderRadius: 8,
-    paddingVertical: 4,
-  },
-  updateButton: {
-    borderRadius: 8,
-    paddingVertical: 4,
+  primaryButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
     marginTop: 8,
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   buttonText: {
-    ...Typography.button,
     fontSize: 16,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  settingLabel: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  settingDescription: {
-    ...Typography.body2,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  divider: {
-    backgroundColor: Colors.border,
-    marginVertical: 8,
-  },
-  actionButton: {
-    marginBottom: 12,
-    borderRadius: 8,
-    paddingVertical: 4,
-  },
-  logoutButton: {
-    marginBottom: 0,
-  },
-  appInfo: {
-    gap: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  infoLabel: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-  },
-  infoValue: {
-    ...Typography.body2,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
-  // Cross-platform alert styles
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  alertContainer: {
-    backgroundColor: Colors.surface,
-    padding: 24,
-    borderRadius: 12,
-    minWidth: 300,
-    maxWidth: '90%',
-  },
-  alertTitle: {
-    ...Typography.h6,
-    color: Colors.textPrimary,
     fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
+    color: Colors.textPrimary,
   },
-  alertMessage: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  alertButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'center',
-    minWidth: 80,
-  },
-  alertButtonText: {
-    ...Typography.body2,
-    color: Colors.background,
-    fontWeight: '500',
+  bottomPadding: {
+    height: 20,
   },
 });

@@ -1,349 +1,329 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Chip, Button } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/Colors';
 import { useTrading } from '../../hooks/useTrading';
-import { tradingViewService, TradingViewData } from '../../services/tradingViewService';
-import { Colors, Gradients } from '../../constants/Colors';
-import { Typography } from '../../constants/Typography';
-import { QUICK_ACCESS_SYMBOLS, getTradingViewSymbol } from '../../constants/Markets';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-export default function Charts() {
-  const { selectedSymbol, setSelectedSymbol, indicators } = useTrading();
-  const [selectedTimeframe, setSelectedTimeframe] = useState('15');
-  const [priceData, setPriceData] = useState<TradingViewData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const chartContainerRef = useRef<View>(null);
+export default function ChartsScreen() {
+  const { 
+    selectedSymbol, 
+    setSelectedSymbol, 
+    getMarketData,
+    realTimeData 
+  } = useTrading();
+  
+  const [activeTimeframe, setActiveTimeframe] = useState('1H');
+  const [chartType, setChartType] = useState('candlestick');
 
-  const symbols = QUICK_ACCESS_SYMBOLS;
-  const timeframes = [
-    { label: '1M', value: '1' },
-    { label: '5M', value: '5' },
-    { label: '15M', value: '15' },
-    { label: '1H', value: '60' },
-    { label: '4H', value: '240' },
-    { label: '1D', value: '1D' }
+  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+  const timeframes = ['1M', '5M', '15M', '30M', '1H', '4H', '1D'];
+  const chartTypes = [
+    { id: 'candlestick', name: 'Candlestick', icon: 'show-chart' },
+    { id: 'line', name: 'Line', icon: 'timeline' },
+    { id: 'area', name: 'Area', icon: 'area-chart' },
   ];
 
-  // Load real-time price data
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-
-    const loadPriceData = async () => {
-      setIsLoading(true);
-      
-      // Subscribe to real-time price updates
-      unsubscribe = tradingViewService.subscribeToPrice(selectedSymbol, (data: TradingViewData) => {
-        setPriceData(data);
-        setIsLoading(false);
-      });
-
-      // Get initial price data
-      const initialData = await tradingViewService.getRealTimePrice(selectedSymbol);
-      if (initialData) {
-        setPriceData(initialData);
-        setIsLoading(false);
-      }
-    };
-
-    loadPriceData();
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [selectedSymbol]);
-
-  // Generate TradingView widget HTML for WebView
-  const getTradingViewHTML = () => {
-    const tradingViewSymbol = getTradingViewSymbol(selectedSymbol);
+  // Mock price data for demonstration
+  const generateMockPriceData = () => {
+    const marketData = getMarketData(selectedSymbol);
+    const basePrice = marketData ? marketData.price : 1.0850;
     
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TradingView Chart</title>
-        <style>
-            body { margin: 0; padding: 0; background-color: #0A0E1A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-            #tradingview_chart { width: 100%; height: 100vh; }
-            .loading { 
-                display: flex; 
-                justify-content: center; 
-                align-items: center; 
-                height: 100vh; 
-                color: #B8C5D6; 
-                font-size: 16px;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="loading" class="loading">Loading Chart...</div>
-        <div id="tradingview_chart" style="display: none;"></div>
-        
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-            function initChart() {
-                try {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('tradingview_chart').style.display = 'block';
-                    
-                    new TradingView.widget({
-                        "width": "100%",
-                        "height": "100%",
-                        "symbol": "${tradingViewSymbol}",
-                        "interval": "${selectedTimeframe}",
-                        "timezone": "Etc/UTC",
-                        "theme": "dark",
-                        "style": "1",
-                        "locale": "en",
-                        "toolbar_bg": "#0A0E1A",
-                        "enable_publishing": false,
-                        "hide_top_toolbar": false,
-                        "hide_legend": false,
-                        "save_image": false,
-                        "container_id": "tradingview_chart",
-                        "studies": [
-                            "RSI@tv-basicstudies",
-                            "MACD@tv-basicstudies",
-                            "MASimple@tv-basicstudies"
-                        ],
-                        "overrides": {
-                            "paneProperties.background": "#0A0E1A",
-                            "paneProperties.vertGridProperties.color": "#2A3441",
-                            "paneProperties.horzGridProperties.color": "#2A3441",
-                            "symbolWatermarkProperties.transparency": 90,
-                            "scalesProperties.textColor": "#B8C5D6",
-                            "mainSeriesProperties.candleStyle.upColor": "#00FF88",
-                            "mainSeriesProperties.candleStyle.downColor": "#FF4757",
-                            "mainSeriesProperties.candleStyle.borderUpColor": "#00FF88",
-                            "mainSeriesProperties.candleStyle.borderDownColor": "#FF4757",
-                            "mainSeriesProperties.candleStyle.wickUpColor": "#00FF88",
-                            "mainSeriesProperties.candleStyle.wickDownColor": "#FF4757"
-                        }
-                    });
-                } catch (error) {
-                    console.error('TradingView widget error:', error);
-                    document.getElementById('loading').innerHTML = 'Chart loading failed';
-                }
-            }
-            
-            // Initialize when DOM is loaded
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initChart);
-            } else {
-                initChart();
-            }
-        </script>
-    </body>
-    </html>
-    `;
+    const data = [];
+    for (let i = 50; i >= 0; i--) {
+      const time = new Date(Date.now() - i * 3600000); // Hourly data
+      const variation = (Math.random() - 0.5) * 0.01;
+      const open = basePrice + variation;
+      const close = open + (Math.random() - 0.5) * 0.005;
+      const high = Math.max(open, close) + Math.random() * 0.002;
+      const low = Math.min(open, close) - Math.random() * 0.002;
+      
+      data.push({
+        time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        open,
+        high,
+        low,
+        close,
+        volume: Math.floor(Math.random() * 100000),
+      });
+    }
+    return data;
   };
+
+  const [priceData, setPriceData] = useState(generateMockPriceData());
+
+  useEffect(() => {
+    setPriceData(generateMockPriceData());
+  }, [selectedSymbol, activeTimeframe]);
+
+  // Simple chart visualization
+  const renderChart = () => {
+    const maxPrice = Math.max(...priceData.map(d => d.high));
+    const minPrice = Math.min(...priceData.map(d => d.low));
+    const priceRange = maxPrice - minPrice;
+    const chartHeight = 200;
+    const chartWidth = width - 40;
+
+    return (
+      <View style={styles.chartContainer}>
+        <View style={styles.priceAxis}>
+          <Text style={styles.axisText}>{maxPrice.toFixed(5)}</Text>
+          <Text style={styles.axisText}>{((maxPrice + minPrice) / 2).toFixed(5)}</Text>
+          <Text style={styles.axisText}>{minPrice.toFixed(5)}</Text>
+        </View>
+        
+        <View style={[styles.chartArea, { width: chartWidth, height: chartHeight }]}>
+          {chartType === 'line' ? (
+            // Line chart
+            <View style={styles.lineChart}>
+              {priceData.map((point, index) => {
+                const x = (index / (priceData.length - 1)) * (chartWidth - 20);
+                const y = ((maxPrice - point.close) / priceRange) * (chartHeight - 20) + 10;
+                
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.linePoint,
+                      { left: x, top: y }
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          ) : (
+            // Candlestick chart
+            <View style={styles.candlestickChart}>
+              {priceData.slice(0, 20).map((candle, index) => {
+                const x = (index / 19) * (chartWidth - 40) + 20;
+                const openY = ((maxPrice - candle.open) / priceRange) * (chartHeight - 20) + 10;
+                const closeY = ((maxPrice - candle.close) / priceRange) * (chartHeight - 20) + 10;
+                const highY = ((maxPrice - candle.high) / priceRange) * (chartHeight - 20) + 10;
+                const lowY = ((maxPrice - candle.low) / priceRange) * (chartHeight - 20) + 10;
+                
+                const isGreen = candle.close > candle.open;
+                const bodyHeight = Math.abs(closeY - openY);
+                const bodyTop = Math.min(openY, closeY);
+                
+                return (
+                  <View key={index} style={{ position: 'absolute', left: x - 3 }}>
+                    {/* Wick */}
+                    <View
+                      style={[
+                        styles.wick,
+                        {
+                          top: highY,
+                          height: lowY - highY,
+                          backgroundColor: isGreen ? Colors.bullish : Colors.bearish,
+                        }
+                      ]}
+                    />
+                    {/* Body */}
+                    <View
+                      style={[
+                        styles.candleBody,
+                        {
+                          top: bodyTop,
+                          height: Math.max(bodyHeight, 2),
+                          backgroundColor: isGreen ? Colors.bullish : Colors.bearish,
+                        }
+                      ]}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          
+          {/* Grid lines */}
+          <View style={styles.gridLines}>
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+              <View
+                key={ratio}
+                style={[
+                  styles.gridLine,
+                  { top: ratio * (chartHeight - 20) + 10 }
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const currentPrice = getMarketData(selectedSymbol);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <LinearGradient
-        colors={Gradients.header}
-        style={styles.headerGradient}
-      >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Professional Charts</Text>
-            <Text style={styles.subtitle}>Real-time market analysis powered by TradingView</Text>
+          <Text style={styles.headerTitle}>Charts</Text>
+          <View style={styles.headerInfo}>
+            {currentPrice && (
+              <>
+                <Text style={styles.currentPrice}>
+                  {currentPrice.price.toFixed(5)}
+                </Text>
+                <Text style={[
+                  styles.priceChange,
+                  { color: currentPrice.change >= 0 ? Colors.bullish : Colors.bearish }
+                ]}>
+                  {currentPrice.change >= 0 ? '+' : ''}{currentPrice.changePercent.toFixed(2)}%
+                </Text>
+              </>
+            )}
           </View>
-          <MaterialIcons name="show-chart" size={28} color={Colors.primary} />
         </View>
-      </LinearGradient>
 
-      <View style={styles.content}>
-        {/* Market & Timeframe Selection */}
-        <View style={styles.controlsContainer}>
-          {/* Symbol Selection */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            style={styles.symbolScroll}
-            contentContainerStyle={styles.symbolScrollContent}
-          >
-            {symbols.map((symbol) => (
-              <Chip
-                key={symbol}
-                selected={selectedSymbol === symbol}
-                onPress={() => setSelectedSymbol(symbol)}
-                style={[
-                  styles.symbolChip,
-                  selectedSymbol === symbol && styles.selectedSymbolChip
-                ]}
-                textStyle={[
-                  styles.symbolChipText,
-                  selectedSymbol === symbol && styles.selectedSymbolChipText
-                ]}
-                selectedColor={Colors.background}
-              >
-                {symbol}
-              </Chip>
-            ))}
-          </ScrollView>
-
-          {/* Timeframe Selection */}
+        {/* Symbol Selector */}
+        <View style={styles.section}>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
-            style={styles.timeframeScroll}
-            contentContainerStyle={styles.timeframeScrollContent}
+            style={styles.horizontalScroll}
           >
-            {timeframes.map((timeframe) => (
-              <Chip
-                key={timeframe.value}
-                selected={selectedTimeframe === timeframe.value}
-                onPress={() => setSelectedTimeframe(timeframe.value)}
+            {symbols.map((symbol) => (
+              <TouchableOpacity
+                key={symbol}
                 style={[
-                  styles.timeframeChip,
-                  selectedTimeframe === timeframe.value && styles.selectedTimeframeChip
+                  styles.symbolButton,
+                  selectedSymbol === symbol && styles.symbolButtonActive
                 ]}
-                textStyle={[
-                  styles.timeframeChipText,
-                  selectedTimeframe === timeframe.value && styles.selectedTimeframeChipText
-                ]}
+                onPress={() => setSelectedSymbol(symbol)}
               >
-                {timeframe.label}
-              </Chip>
+                <Text style={[
+                  styles.symbolButtonText,
+                  selectedSymbol === symbol && styles.symbolButtonTextActive
+                ]}>
+                  {symbol}
+                </Text>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* Price Information */}
-        {priceData && (
-          <Card style={styles.priceCard}>
-            <LinearGradient
-              colors={[Colors.primary + '10', Colors.surface]}
-              style={styles.priceGradient}
+        {/* Chart Type & Timeframe */}
+        <View style={styles.controlsSection}>
+          <View style={styles.controlGroup}>
+            <Text style={styles.controlLabel}>Chart Type</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.horizontalScroll}
             >
-              <View style={styles.priceHeader}>
-                <View>
-                  <Text style={styles.priceSymbol}>{selectedSymbol}</Text>
-                  <Text style={styles.priceValue}>{priceData.price.toFixed(5)}</Text>
-                </View>
-                <View style={styles.priceChange}>
+              {chartTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.chartTypeButton,
+                    chartType === type.id && styles.chartTypeButtonActive
+                  ]}
+                  onPress={() => setChartType(type.id)}
+                >
                   <MaterialIcons 
-                    name={priceData.change >= 0 ? "trending-up" : "trending-down"} 
-                    size={24} 
-                    color={priceData.change >= 0 ? Colors.bullish : Colors.bearish} 
+                    name={type.icon as any} 
+                    size={16} 
+                    color={chartType === type.id ? Colors.textPrimary : Colors.textSecondary} 
                   />
-                  <View style={styles.changeValues}>
-                    <Text style={[styles.changeValue, { 
-                      color: priceData.change >= 0 ? Colors.bullish : Colors.bearish 
-                    }]}>
-                      {priceData.change >= 0 ? '+' : ''}{priceData.change.toFixed(5)}
-                    </Text>
-                    <Text style={[styles.changePercent, { 
-                      color: priceData.change >= 0 ? Colors.bullish : Colors.bearish 
-                    }]}>
-                      ({priceData.changePercent >= 0 ? '+' : ''}{priceData.changePercent.toFixed(2)}%)
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              
-              <View style={styles.priceDetails}>
-                <View style={styles.priceDetailItem}>
-                  <Text style={styles.priceDetailLabel}>High</Text>
-                  <Text style={styles.priceDetailValue}>{priceData.high.toFixed(5)}</Text>
-                </View>
-                <View style={styles.priceDetailItem}>
-                  <Text style={styles.priceDetailLabel}>Low</Text>
-                  <Text style={styles.priceDetailValue}>{priceData.low.toFixed(5)}</Text>
-                </View>
-                <View style={styles.priceDetailItem}>
-                  <Text style={styles.priceDetailLabel}>Open</Text>
-                  <Text style={styles.priceDetailValue}>{priceData.open.toFixed(5)}</Text>
-                </View>
-                <View style={styles.priceDetailItem}>
-                  <Text style={styles.priceDetailLabel}>Volume</Text>
-                  <Text style={styles.priceDetailValue}>{priceData.volume.toLocaleString()}</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </Card>
-        )}
+                  <Text style={[
+                    styles.chartTypeText,
+                    chartType === type.id && styles.chartTypeTextActive
+                  ]}>
+                    {type.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>{/* This was the missing closing tag */}
 
-        {/* TradingView Chart */}
-        <View style={styles.chartContainer} ref={chartContainerRef}>
-          {Platform.OS === 'web' ? (
-            <iframe
-              src={`data:text/html;charset=utf-8,${encodeURIComponent(getTradingViewHTML())}`}
-              style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 }}
-            />
-          ) : (
-            <WebView
-              source={{ html: getTradingViewHTML() }}
-              style={styles.webview}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.webviewLoading}>
-                  <MaterialIcons name="timeline" size={64} color={Colors.textMuted} />
-                  <Text style={styles.webviewLoadingText}>Loading Professional Chart...</Text>
-                </View>
-              )}
-            />
-          )}
+          <View style={styles.controlGroup}>
+            <Text style={styles.controlLabel}>Timeframe</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.horizontalScroll}
+            >
+              {timeframes.map((timeframe) => (
+                <TouchableOpacity
+                  key={timeframe}
+                  style={[
+                    styles.timeframeButton,
+                    activeTimeframe === timeframe && styles.timeframeButtonActive
+                  ]}
+                  onPress={() => setActiveTimeframe(timeframe)}
+                >
+                  <Text style={[
+                    styles.timeframeButtonText,
+                    activeTimeframe === timeframe && styles.timeframeButtonTextActive
+                  ]}>
+                    {timeframe}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
-      </View>
 
-      {/* Technical Indicators Summary */}
-      <Card style={styles.indicatorsCard}>
-        <Card.Content style={styles.indicatorsContent}>
-          <View style={styles.indicatorsHeader}>
-            <Text style={styles.indicatorsTitle}>Technical Analysis</Text>
-            <MaterialIcons name="analytics" size={20} color={Colors.accent} />
+        {/* Chart */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {selectedSymbol} - {activeTimeframe}
+          </Text>
+          {renderChart()}
+        </View>
+
+        {/* Chart Stats */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Market Statistics</Text>
+          <View style={styles.statsGrid}>
+            {currentPrice && (
+              <>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>High</Text>
+                  <Text style={styles.statValue}>
+                    {currentPrice.high.toFixed(5)}
+                  </Text>
+                </View>
+                
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Low</Text>
+                  <Text style={styles.statValue}>
+                    {currentPrice.low.toFixed(5)}
+                  </Text>
+                </View>
+                
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Open</Text>
+                  <Text style={styles.statValue}>
+                    {currentPrice.open.toFixed(5)}
+                  </Text>
+                </View>
+                
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Volume</Text>
+                  <Text style={styles.statValue}>
+                    {(currentPrice.volume / 1000).toFixed(0)}K
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
-          
-          <View style={styles.indicatorsGrid}>
-            <View style={styles.indicatorItem}>
-              <Text style={styles.indicatorLabel}>RSI (14)</Text>
-              <Text style={[styles.indicatorValue, { 
-                color: indicators.rsi > 70 ? Colors.bearish : indicators.rsi < 30 ? Colors.bullish : Colors.textPrimary 
-              }]}>
-                {indicators.rsi.toFixed(1)}
-              </Text>
-              <Text style={styles.indicatorSignal}>
-                {indicators.rsi > 70 ? 'Overbought' : indicators.rsi < 30 ? 'Oversold' : 'Neutral'}
-              </Text>
-            </View>
-            
-            <View style={styles.indicatorItem}>
-              <Text style={styles.indicatorLabel}>MACD</Text>
-              <Text style={[styles.indicatorValue, { 
-                color: indicators.macd.signal > 0 ? Colors.bullish : Colors.bearish 
-              }]}>
-                {indicators.macd.signal.toFixed(5)}
-              </Text>
-              <Text style={styles.indicatorSignal}>
-                {indicators.macd.signal > 0 ? 'Bullish' : 'Bearish'}
-              </Text>
-            </View>
-            
-            <View style={styles.indicatorItem}>
-              <Text style={styles.indicatorLabel}>MA (50)</Text>
-              <Text style={styles.indicatorValue}>{indicators.movingAverage.toFixed(5)}</Text>
-              <Text style={styles.indicatorSignal}>
-                {priceData && priceData.price > indicators.movingAverage ? 'Above MA' : 'Below MA'}
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
+        </View>
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -353,212 +333,219 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerGradient: {
-    paddingBottom: 16,
+  scrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  title: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...Typography.body2,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  controlsContainer: {
-    marginBottom: 12,
-  },
-  symbolScroll: {
-    marginBottom: 12,
-  },
-  symbolScrollContent: {
-    paddingRight: 16,
-  },
-  symbolChip: {
-    marginRight: 8,
-    backgroundColor: Colors.cardElevated,
-    borderColor: Colors.border,
-  },
-  selectedSymbolChip: {
-    backgroundColor: Colors.primary,
-  },
-  symbolChipText: {
-    color: Colors.textSecondary,
-    fontWeight: '500',
-    fontSize: 13,
-  },
-  selectedSymbolChipText: {
-    color: Colors.background,
-    fontWeight: '600',
-  },
-  timeframeScroll: {
-    marginBottom: 8,
-  },
-  timeframeScrollContent: {
-    paddingRight: 16,
-  },
-  timeframeChip: {
-    marginRight: 6,
-    backgroundColor: Colors.cardElevated,
-    height: 32,
-  },
-  selectedTimeframeChip: {
-    backgroundColor: Colors.secondary,
-  },
-  timeframeChipText: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  selectedTimeframeChipText: {
-    color: Colors.background,
-    fontWeight: '600',
-  },
-  priceCard: {
-    marginBottom: 12,
-    borderRadius: 12,
-    elevation: 4,
-  },
-  priceGradient: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  priceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  priceSymbol: {
-    ...Typography.h6,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  priceValue: {
-    ...Typography.h4,
-    color: Colors.textPrimary,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: '700',
-    ...Typography.number,
+    color: Colors.textPrimary,
   },
-  priceChange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  changeValues: {
+  headerInfo: {
     alignItems: 'flex-end',
   },
-  changeValue: {
-    ...Typography.body1,
-    fontWeight: '600',
-    ...Typography.number,
-  },
-  changePercent: {
-    ...Typography.caption,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  priceDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  priceDetailItem: {
-    alignItems: 'center',
-  },
-  priceDetailLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-    marginBottom: 4,
-  },
-  priceDetailValue: {
-    ...Typography.body2,
+  currentPrice: {
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.textPrimary,
+    fontFamily: 'monospace',
+  },
+  priceChange: {
+    fontSize: 14,
     fontWeight: '500',
-    ...Typography.number,
   },
-  chartContainer: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 4,
-    marginBottom: 12,
-    minHeight: 400,
-  },
-  webview: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-  },
-  webviewLoading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-  },
-  webviewLoadingText: {
-    ...Typography.body2,
-    color: Colors.textMuted,
-    marginTop: 12,
-  },
-  indicatorsCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    elevation: 4,
-    marginBottom: 16,
-  },
-  indicatorsContent: {
+  section: {
+    paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  indicatorsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  controlsSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
-  indicatorsTitle: {
-    ...Typography.body1,
+  controlGroup: {
+    marginBottom: 16,
+  },
+  controlLabel: {
+    fontSize: 14,
+    fontWeight: '500',
     color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 16,
   },
-  indicatorsGrid: {
+  horizontalScroll: {
+    flexGrow: 0,
+  },
+  symbolButton: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  symbolButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  symbolButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  symbolButtonTextActive: {
+    color: Colors.textPrimary,
+  },
+  chartTypeButton: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  indicatorItem: {
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  indicatorLabel: {
-    ...Typography.caption,
+  chartTypeButtonActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  chartTypeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginLeft: 4,
+  },
+  chartTypeTextActive: {
+    color: Colors.textPrimary,
+  },
+  timeframeButton: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  timeframeButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  timeframeButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  timeframeButtonTextActive: {
+    color: Colors.textPrimary,
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  priceAxis: {
+    width: 60,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingVertical: 10,
+    paddingRight: 8,
+    backgroundColor: Colors.card,
+  },
+  axisText: {
+    fontSize: 10,
     color: Colors.textMuted,
+    fontFamily: 'monospace',
+  },
+  chartArea: {
+    backgroundColor: Colors.surface,
+    position: 'relative',
+  },
+  gridLines: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: Colors.border,
+    opacity: 0.3,
+  },
+  lineChart: {
+    flex: 1,
+    position: 'relative',
+  },
+  linePoint: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    backgroundColor: Colors.primary,
+    borderRadius: 1,
+  },
+  candlestickChart: {
+    flex: 1,
+    position: 'relative',
+  },
+  wick: {
+    position: 'absolute',
+    width: 1,
+    left: 2.5,
+  },
+  candleBody: {
+    position: 'absolute',
+    width: 6,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
     marginBottom: 4,
   },
-  indicatorValue: {
-    ...Typography.body1,
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
     color: Colors.textPrimary,
-    fontWeight: '600',
-    ...Typography.number,
-    marginBottom: 2,
+    fontFamily: 'monospace',
   },
-  indicatorSignal: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    fontSize: 10,
-    textAlign: 'center',
+  bottomPadding: {
+    height: 20,
   },
 });

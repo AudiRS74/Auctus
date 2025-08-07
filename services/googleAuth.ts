@@ -1,52 +1,109 @@
 import { Platform } from 'react-native';
 
-interface GoogleUser {
+export interface GoogleUser {
   id: string;
   name: string;
   email: string;
   photo?: string;
 }
 
+export interface GoogleAuthResult {
+  user?: GoogleUser;
+  error?: string;
+  cancelled?: boolean;
+}
+
 class GoogleAuthService {
-  async signIn(): Promise<GoogleUser> {
+  private isInitialized: boolean = false;
+
+  constructor() {
+    console.log('GoogleAuthService initialized');
+  }
+
+  async initialize(): Promise<boolean> {
     try {
-      // Simulate Google Sign-In process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('GoogleAuthService: Initializing...');
       
-      if (Platform.OS === 'web') {
-        // Web implementation would use Google's web SDK
-        return this.simulateWebGoogleAuth();
-      } else {
-        // Mobile implementation would use Google Sign-In SDK
-        return this.simulateMobileGoogleAuth();
-      }
+      // Note: In a real app, you would initialize Google Sign-In SDK here
+      // For this demo, we'll just mark as initialized
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      this.isInitialized = true;
+      console.log('GoogleAuthService: Initialized successfully');
+      return true;
     } catch (error) {
-      throw new Error('Google Sign-In failed');
+      console.error('GoogleAuthService: Initialization failed:', error);
+      return false;
+    }
+  }
+
+  async signIn(): Promise<GoogleAuthResult> {
+    try {
+      if (!this.isInitialized) {
+        const initialized = await this.initialize();
+        if (!initialized) {
+          throw new Error('Failed to initialize Google Auth');
+        }
+      }
+
+      console.log('GoogleAuthService: Starting sign-in...');
+
+      // Simulate Google sign-in process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // For demo purposes, return a mock user
+      // In a real app, this would integrate with actual Google Sign-In
+      const mockUser: GoogleUser = {
+        id: 'google_' + Date.now().toString(),
+        name: 'Demo Google User',
+        email: 'demo@gmail.com',
+        photo: undefined,
+      };
+
+      console.log('GoogleAuthService: Sign-in successful');
+      return { user: mockUser };
+    } catch (error) {
+      console.error('GoogleAuthService: Sign-in failed:', error);
+      return { 
+        error: error instanceof Error ? error.message : 'Google sign-in failed' 
+      };
     }
   }
 
   async signOut(): Promise<void> {
-    // Simulate sign out
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      console.log('GoogleAuthService: Signing out...');
+      
+      // In a real app, you would call the actual Google Sign-In sign-out method
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('GoogleAuthService: Sign-out successful');
+    } catch (error) {
+      console.error('GoogleAuthService: Sign-out failed:', error);
+      throw error;
+    }
   }
 
-  private simulateWebGoogleAuth(): GoogleUser {
-    return {
-      id: 'google_' + Date.now(),
-      name: 'Demo Google User',
-      email: 'demo@gmail.com',
-      photo: 'https://via.placeholder.com/100/0080FF/FFFFFF?text=GU',
-    };
+  async getCurrentUser(): Promise<GoogleUser | null> {
+    try {
+      if (!this.isInitialized) {
+        return null;
+      }
+
+      // In a real app, this would check for existing Google sign-in session
+      console.log('GoogleAuthService: Checking current user...');
+      return null; // No persistent session in demo
+    } catch (error) {
+      console.error('GoogleAuthService: Error getting current user:', error);
+      return null;
+    }
   }
 
-  private simulateMobileGoogleAuth(): GoogleUser {
-    return {
-      id: 'google_mobile_' + Date.now(),
-      name: 'Mobile Google User',
-      email: 'mobile.demo@gmail.com',
-      photo: 'https://via.placeholder.com/100/00C851/FFFFFF?text=MU',
-    };
+  isConfigured(): boolean {
+    // In a real app, you would check if Google Sign-In is properly configured
+    return this.isInitialized;
   }
 }
 
-export const googleAuth = new GoogleAuthService();
+export const googleAuthService = new GoogleAuthService();
+export default googleAuthService;

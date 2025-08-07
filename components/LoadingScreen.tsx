@@ -1,40 +1,165 @@
-import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  ActivityIndicator,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import Colors from '../constants/Colors';
-import { Typography } from '../constants/Typography';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../constants/Colors';
 
 interface LoadingScreenProps {
   message?: string;
   submessage?: string;
-  icon?: string;
+  progress?: number;
+  icon?: keyof typeof MaterialIcons.glyphMap;
+  showProgress?: boolean;
 }
 
-export function LoadingScreen({ 
-  message = 'Loading...', 
+export function LoadingScreen({
+  message = 'Loading...',
   submessage,
-  icon = 'hourglass-empty'
+  progress,
+  icon,
+  showProgress = false,
 }: LoadingScreenProps) {
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [scaleAnim] = useState(new Animated.Value(0.8));
+  const [rotateAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    // Fade in and scale animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Continuous rotation for icons
+    if (icon) {
+      Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+          easing: Easing.linear,
+        })
+      ).start();
+    }
+  }, [fadeAnim, scaleAnim, rotateAnim, icon]);
+
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <MaterialIcons 
-          name={icon as any} 
-          size={64} 
-          color={Colors.accent} 
-          style={styles.icon} 
-        />
-        <ActivityIndicator 
-          size="large" 
-          color={Colors.accent} 
-          style={styles.spinner}
-        />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <Animated.View 
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        {icon ? (
+          <Animated.View
+            style={[
+              styles.iconContainer,
+              { transform: [{ rotate: rotateInterpolate }] },
+            ]}
+          >
+            <MaterialIcons 
+              name={icon} 
+              size={60} 
+              color={Colors.primary} 
+            />
+          </Animated.View>
+        ) : (
+          <View style={styles.spinnerContainer}>
+            <ActivityIndicator 
+              size="large" 
+              color={Colors.primary} 
+            />
+          </View>
+        )}
+
         <Text style={styles.message}>{message}</Text>
+
         {submessage && (
           <Text style={styles.submessage}>{submessage}</Text>
         )}
-      </View>
-    </View>
+
+        {showProgress && typeof progress === 'number' && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBarBackground}>
+              <View 
+                style={[
+                  styles.progressBarFill,
+                  { width: `${Math.max(0, Math.min(100, progress))}%` },
+                ]}
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {Math.round(progress)}%
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.dots}>
+          {[0, 1, 2].map((index) => (
+            <LoadingDot key={index} delay={index * 200} />
+          ))}
+        </View>
+      </Animated.View>
+    </SafeAreaView>
+  );
+}
+
+function LoadingDot({ delay }: { delay: number }) {
+  const [opacity] = useState(new Animated.Value(0.3));
+
+  useEffect(() => {
+    const animate = () => {
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start(() => animate());
+    };
+
+    const timer = setTimeout(animate, delay);
+    return () => clearTimeout(timer);
+  }, [opacity, delay]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        { opacity },
+      ]}
+    />
   );
 }
 
@@ -47,23 +172,69 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  iconContainer: {
+    marginBottom: 30,
+    padding: 20,
+    borderRadius: 50,
+    backgroundColor: Colors.primary + '20',
+  },
+  spinnerContainer: {
+    marginBottom: 30,
     padding: 20,
   },
-  icon: {
-    marginBottom: 16,
-  },
-  spinner: {
-    marginBottom: 24,
-  },
   message: {
-    ...Typography.h6,
-    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   submessage: {
-    ...Typography.body2,
-    color: Colors.textMuted,
+    fontSize: 14,
+    color: Colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 30,
+  },
+  progressContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  progressBarBackground: {
+    width: '100%',
+    height: 6,
+    backgroundColor: Colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    marginHorizontal: 4,
   },
 });
+
+export default LoadingScreen;
