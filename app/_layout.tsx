@@ -8,7 +8,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { TradingProvider } from '../contexts/TradingProvider';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Colors } from '../constants/Colors';
+import Colors from '../constants/Colors';
 
 // App Initializer Component
 function AppInitializer({ children }: { children: React.ReactNode }) {
