@@ -5,14 +5,14 @@ import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Colors, Gradients } from '../constants/Colors';
+import Colors from '../constants/Colors';
 import { Typography } from '../constants/Typography';
 
 export default function NotFound() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={Gradients.trading}
+        colors={[Colors.background, Colors.card]}
         style={styles.gradient}
       >
         <View style={styles.content}>
