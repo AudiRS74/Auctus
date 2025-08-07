@@ -1,92 +1,26 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/Colors';
+import React from "react";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import Dashboard from "./index";
+import Trading from "./trading";
+import Charts from "./charts";
+import Analysis from "./analysis";
+import Settings from "./settings";
+const Tab = createBottomTabNavigator();
 
-export default function TabLayout() {
+export default function MainTabs() {
   return (
-    <Tabs
+    <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 70,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginTop: 4,
-        },
         headerShown: false,
+        tabBarStyle: { backgroundColor: "#10131A", borderTopColor: "#222A36" },
+        tabBarActiveTintColor: "#5B86FF",
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="dashboard" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="analysis"
-        options={{
-          title: 'Analysis',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="analytics" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="charts"
-        options={{
-          title: 'Charts',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="show-chart" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="trading"
-        options={{
-          title: 'Trading',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="trending-up" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="automation"
-        options={{
-          title: 'Automation',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="smart-toy" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="realtime"
-        options={{
-          title: 'Real-time',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="real-time-sync" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="settings" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+      <Tab.Screen name="Dashboard" component={Dashboard} />
+      <Tab.Screen name="Trading" component={Trading} />
+      <Tab.Screen name="Charts" component={Charts} />
+      <Tab.Screen name="Analysis" component={Analysis} />
+      <Tab.Screen name="Settings" component={Settings} />
+    </Tab.Navigator>
   );
 }
