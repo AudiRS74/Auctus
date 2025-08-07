@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Button } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '../constants/Colors';
+import Colors from '../constants/Colors';
 import { Typography } from '../constants/Typography';
 
 interface ErrorBoundaryState {
