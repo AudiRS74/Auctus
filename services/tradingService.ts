@@ -1,5 +1,5 @@
 // Example trading service for broker API integration
-export async function fetchInstruments() {
+export function fetchInstruments() {
   // Fetch from Supabase instruments table
   // Replace with your DB/API logic
   return [
@@ -8,12 +8,12 @@ export async function fetchInstruments() {
   ];
 }
 
-export async function fetchTrades() {
+export function fetchTrades() {
   // Fetch from Supabase trades table
   return [];
 }
 
-export async function executeTrade({ symbol, type, quantity, apiKey, apiSecret }) {
+export function executeTrade({ symbol, type, quantity, _apiKey, _apiSecret }) {
   // Example: send request to broker API
   // Replace with actual broker API integration
   return {

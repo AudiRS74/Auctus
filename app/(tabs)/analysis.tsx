@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ export default function AnalysisScreen() {
 
   useEffect(() => {
     updateIndicators(selectedSymbol);
-  }, [selectedSymbol]);
+  }, [selectedSymbol, updateIndicators]);
 
   const getRSIColor = (rsi: number) => {
     if (rsi >= 70) return Colors.bearish; // Overbought

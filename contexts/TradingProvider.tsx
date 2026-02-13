@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { mt5Service, MT5Credentials, MT5AccountInfo, MT5Position, MT5Symbol } from '../services/mt5Service';
 import { tradingViewService, TradingViewData } from '../services/tradingViewService';
 import { automationEngine } from '../services/automationEngine';
@@ -236,10 +236,10 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       }));
     };
 
-    const handleError = (error: any) => {
+    const handleError = (error: unknown) => {
       if (!isMounted) return;
       console.error('MT5 Service Error:', error);
-      setConnectionError(error.message || 'Unknown error occurred');
+      setConnectionError((error as Error).message || 'Unknown error occurred');
       setIsConnecting(false);
     };
 
@@ -309,7 +309,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     };
   }, [selectedSymbol, initialized]);
 
-  const updateIndicatorsFromMarketData = (marketData: TradingViewData) => {
+  const updateIndicatorsFromMarketData = useCallback((marketData: TradingViewData) => {
     try {
       if (!isMounted) return;
       
@@ -340,9 +340,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating indicators:', error);
     }
-  };
+  }, [isMounted]);
 
-  const executeTrade = async (symbol: string, type: 'BUY' | 'SELL', quantity: number) => {
+  const executeTrade = useCallback(async (symbol: string, type: 'BUY' | 'SELL', quantity: number) => {
     try {
       if (mt5Config.connected && mt5Service.isConnectedToMT5()) {
         // Execute real trade through MT5
@@ -417,9 +417,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       console.error('Trade execution failed:', error);
       throw error;
     }
-  };
+  }, [isMounted, mt5Config.connected, realTimeData.market_data]);
 
-  const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {
+  const connectMT5 = useCallback(async (config: Omit<MT5Config, 'connected'>) => {
     console.log('Starting MT5 connection process...', { server: config.server, login: config.login });
     setIsConnecting(true);
     setConnectionError(null);
@@ -496,9 +496,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       setConnectionError(userFriendlyError);
       throw new Error(userFriendlyError);
     }
-  };
+  }, [isMounted, marketSubscriptions, refreshAccountData]);
 
-  const disconnectMT5 = () => {
+  const disconnectMT5 = useCallback(() => {
     try {
       mt5Service.disconnect();
       if (isMounted) {
@@ -526,9 +526,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Disconnect error:', error);
     }
-  };
+  }, [isMounted, marketSubscriptions, mt5Config.connected]);
 
-  const refreshAccountData = async () => {
+  const refreshAccountData = useCallback(async () => {
     if (!mt5Config.connected || !mt5Service.isConnectedToMT5() || !isMounted) {
       return;
     }
@@ -560,9 +560,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         setConnectionError('Failed to refresh account data');
       }
     }
-  };
+  }, [isMounted, mt5Config.connected]);
 
-  const updateIndicators = async (symbol: string) => {
+  const updateIndicators = useCallback(async (symbol: string) => {
     try {
       // Get real market data for indicator calculation
       const marketData = await tradingViewService.getRealTimePrice(symbol);
@@ -572,13 +572,13 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating indicators:', error);
     }
-  };
+  }, [isMounted, updateIndicatorsFromMarketData]);
 
-  const getMarketData = (symbol: string): TradingViewData | null => {
+  const getMarketData = useCallback((symbol: string): TradingViewData | null => {
     return realTimeData.marketData[symbol] || null;
-  };
+  }, [realTimeData.marketData]);
 
-  const addAutomationRule = (name: string, description: string) => {
+  const addAutomationRule = useCallback((name: string, description: string) => {
     if (!isMounted) return;
     const newRule: AutomationRule = {
       id: Date.now().toString(),
@@ -588,28 +588,28 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       createdAt: new Date(),
     };
     setAutomationRules(prev => [newRule, ...prev]);
-  };
+  }, [isMounted]);
 
-  const toggleAutomationRule = (id: string) => {
+  const toggleAutomationRule = useCallback((id: string) => {
     if (!isMounted) return;
     setAutomationRules(prev =>
       prev.map(rule =>
         rule.id === id ? { ...rule, isActive: !rule.isActive } : rule
       )
     );
-  };
+  }, [isMounted]);
 
-  const deleteAutomationRule = (id: string) => {
+  const deleteAutomationRule = useCallback((id: string) => {
     if (!isMounted) return;
     setAutomationRules(prev => prev.filter(rule => rule.id !== id));
-  };
+  }, [isMounted]);
 
-  const addAutomationStrategy = (strategy: AutomationStrategy) => {
+  const addAutomationStrategy = useCallback((strategy: AutomationStrategy) => {
     if (!isMounted) return;
     setAutomationStrategies(prev => [strategy, ...prev]);
-  };
+  }, [isMounted]);
 
-  const toggleAutomationStrategy = (id: string) => {
+  const toggleAutomationStrategy = useCallback((id: string) => {
     if (!isMounted) return;
     setAutomationStrategies(prev =>
       prev.map(strategy =>
@@ -617,15 +617,28 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       )
     );
     updateAutomationStatus();
-  };
+  }, [isMounted, updateAutomationStatus]);
 
-  const deleteAutomationStrategy = (id: string) => {
+  const deleteAutomationStrategy = useCallback((id: string) => {
     if (!isMounted) return;
     setAutomationStrategies(prev => prev.filter(strategy => strategy.id !== id));
     updateAutomationStatus();
-  };
+  }, [isMounted, updateAutomationStatus]);
 
-  const startAutomation = () => {
+  const updateAutomationStatus = useCallback(() => {
+    if (!isMounted) return;
+    const activeStrategies = automationStrategies.filter(s => s.isActive);
+    const totalSignals = automationEngine.getSignals().length;
+
+    setAutomationStatus(prev => ({
+      ...prev,
+      activeStrategies: activeStrategies.length,
+      totalSignals,
+      lastUpdate: new Date(),
+    }));
+  }, [isMounted, automationStrategies]);
+
+  const startAutomation = useCallback(() => {
     if (!isMounted) return;
     const activeStrategies = automationStrategies.filter(s => s.isActive);
     if (activeStrategies.length === 0) {
@@ -641,9 +654,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     }));
 
     startSignalMonitoring();
-  };
+  }, [isMounted, automationStrategies, startSignalMonitoring]);
 
-  const stopAutomation = () => {
+  const stopAutomation = useCallback(() => {
     if (!isMounted) return;
     automationEngine.stop();
     setAutomationStatus(prev => ({
@@ -656,36 +669,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       clearInterval(signalMonitoringInterval);
       setSignalMonitoringInterval(null);
     }
-  };
+  }, [isMounted, signalMonitoringInterval]);
 
-  const updateAutomationStatus = () => {
-    if (!isMounted) return;
-    const activeStrategies = automationStrategies.filter(s => s.isActive);
-    const totalSignals = automationEngine.getSignals().length;
-
-    setAutomationStatus(prev => ({
-      ...prev,
-      activeStrategies: activeStrategies.length,
-      totalSignals,
-      lastUpdate: new Date(),
-    }));
-  };
-
-  const startSignalMonitoring = () => {
-    if (signalMonitoringInterval) {
-      clearInterval(signalMonitoringInterval);
-    }
-
-    const interval = setInterval(() => {
-      if (isMounted) {
-        monitorAutomationSignals();
-      }
-    }, 15000); // Check every 15 seconds
-
-    setSignalMonitoringInterval(interval);
-  };
-
-  const monitorAutomationSignals = async () => {
+  const monitorAutomationSignals = useCallback(async () => {
     if (!isMounted) return;
     
     const activeStrategies = automationStrategies.filter(s => s.isActive);
@@ -739,7 +725,21 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     if (isMounted) {
       updateAutomationStatus();
     }
-  };
+  }, [isMounted, automationStrategies, executeTrade, updateAutomationStatus]);
+
+  const startSignalMonitoring = useCallback(() => {
+    if (signalMonitoringInterval) {
+      clearInterval(signalMonitoringInterval);
+    }
+
+    const interval = setInterval(() => {
+      if (isMounted) {
+        monitorAutomationSignals();
+      }
+    }, 15000); // Check every 15 seconds
+
+    setSignalMonitoringInterval(interval);
+  }, [isMounted, signalMonitoringInterval, monitorAutomationSignals]);
 
   // Auto-refresh indicators based on real market data
   useEffect(() => {

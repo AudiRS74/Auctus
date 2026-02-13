@@ -173,7 +173,7 @@ class AutomationEngine extends EventEmitter {
         }
         break;
 
-      case 'MA':
+      case 'MA': {
         const currentPrice = conditions.movingAverage + (Math.random() - 0.5) * 0.001;
         if (currentPrice > conditions.movingAverage && 
             (strategy.tradeType === 'BUY' || strategy.tradeType === 'BOTH')) {
@@ -185,6 +185,7 @@ class AutomationEngine extends EventEmitter {
           action = 'SELL';
         }
         break;
+      }
 
       case 'STOCH':
         if (conditions.stochastic && conditions.stochastic.k < 20 && 

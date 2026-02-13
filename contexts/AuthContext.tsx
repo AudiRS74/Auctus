@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       console.log('AuthContext: Sign in attempt for:', email);
       setLoading(true);
@@ -138,9 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     }
-  };
+  }, [isMounted]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       console.log('AuthContext: Signing out user');
       setLoading(true);
@@ -162,9 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     }
-  };
+  }, [isMounted]);
 
-  const updateProfile = async (profile: Partial<User>) => {
+  const updateProfile = useCallback(async (profile: Partial<User>) => {
     try {
       console.log('AuthContext: Updating profile');
       setLoading(true);
@@ -198,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     }
-  };
+  }, [isMounted, user]);
 
   const value = {
     user,

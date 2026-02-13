@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ export default function RealTimeScreen() {
     realTimeData, 
     mt5Config,
     refreshAccountData,
-    getMarketData,
   } = useTrading();
   
   const [refreshing, setRefreshing] = useState(false);
@@ -43,7 +42,7 @@ export default function RealTimeScreen() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [mt5Config.connected]);
+  }, [mt5Config.connected, refreshAccountData]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

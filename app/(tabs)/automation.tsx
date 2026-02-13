@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -238,7 +238,7 @@ export default function AutomationScreen() {
                       styles.optionButton,
                       newStrategy.indicator === indicator && styles.optionButtonActive
                     ]}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, indicator: indicator as any }))}
+                    onPress={() => setNewStrategy(prev => ({ ...prev, indicator: indicator as unknown as any }))}
                   >
                     <Text style={[
                       styles.optionButtonText,
@@ -311,7 +311,7 @@ export default function AutomationScreen() {
                       styles.optionButton,
                       newStrategy.tradeType === type && styles.optionButtonActive
                     ]}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, tradeType: type as any }))}
+                    onPress={() => setNewStrategy(prev => ({ ...prev, tradeType: type as unknown as any }))}
                   >
                     <Text style={[
                       styles.optionButtonText,

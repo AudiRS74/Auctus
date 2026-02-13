@@ -10,12 +10,12 @@ export function useAuth() {
     return {
       user: null,
       isAuthenticated: false,
-      signIn: async () => ({ error: 'Authentication not available' }),
-      signOut: async () => {},
-      updateProfile: async () => {},
+      signIn: () => Promise.resolve({ error: 'Authentication not available' }),
+      signOut: () => Promise.resolve(),
+      updateProfile: () => Promise.resolve(),
       loading: false,
       error: 'Authentication context not found',
-      logout: async () => {},
+      logout: () => Promise.resolve(),
       initialized: false,
     };
   }

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   success: boolean;
@@ -91,22 +91,22 @@ class ApiService {
     return this.request<T>(url);
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+    return await this.request<T>(endpoint, {
       method: 'DELETE',
     });
   }

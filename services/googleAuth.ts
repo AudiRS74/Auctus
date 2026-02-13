@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 export interface GoogleUser {
   id: string;
   name: string;
@@ -84,18 +82,18 @@ class GoogleAuthService {
     }
   }
 
-  async getCurrentUser(): Promise<GoogleUser | null> {
+  getCurrentUser(): Promise<GoogleUser | null> {
     try {
       if (!this.isInitialized) {
-        return null;
+        return Promise.resolve(null);
       }
 
       // In a real app, this would check for existing Google sign-in session
       console.log('GoogleAuthService: Checking current user...');
-      return null; // No persistent session in demo
+      return Promise.resolve(null); // No persistent session in demo
     } catch (error) {
       console.error('GoogleAuthService: Error getting current user:', error);
-      return null;
+      return Promise.resolve(null);
     }
   }
 

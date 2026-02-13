@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';

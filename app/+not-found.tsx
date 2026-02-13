@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from 'react-native-paper';
@@ -20,7 +19,7 @@ export default function NotFound() {
           
           <Text style={styles.title}>Page Not Found</Text>
           <Text style={styles.subtitle}>
-            The trading terminal page you're looking for doesn't exist or has been moved.
+            The trading terminal page you&apos;re looking for doesn&apos;t exist or has been moved.
           </Text>
           
           <View style={styles.buttonContainer}>

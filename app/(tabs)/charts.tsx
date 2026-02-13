@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,7 @@ export default function ChartsScreen() {
   const { 
     selectedSymbol, 
     setSelectedSymbol, 
-    getMarketData,
-    realTimeData 
+    getMarketData
   } = useTrading();
   
   const [activeTimeframe, setActiveTimeframe] = useState('1H');
@@ -35,7 +34,7 @@ export default function ChartsScreen() {
   ];
 
   // Mock price data for demonstration
-  const generateMockPriceData = () => {
+  const generateMockPriceData = useCallback(() => {
     const marketData = getMarketData(selectedSymbol);
     const basePrice = marketData ? marketData.price : 1.0850;
     
@@ -58,13 +57,13 @@ export default function ChartsScreen() {
       });
     }
     return data;
-  };
+  }, [getMarketData, selectedSymbol]);
 
   const [priceData, setPriceData] = useState(generateMockPriceData());
 
   useEffect(() => {
     setPriceData(generateMockPriceData());
-  }, [selectedSymbol, activeTimeframe]);
+  }, [selectedSymbol, activeTimeframe, generateMockPriceData]);
 
   // Simple chart visualization
   const renderChart = () => {
@@ -233,7 +232,7 @@ export default function ChartsScreen() {
                   onPress={() => setChartType(type.id)}
                 >
                   <MaterialIcons 
-                    name={type.icon as any} 
+                    name={type.icon as unknown as any}
                     size={16} 
                     color={chartType === type.id ? Colors.textPrimary : Colors.textSecondary} 
                   />

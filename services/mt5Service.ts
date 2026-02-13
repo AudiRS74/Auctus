@@ -181,13 +181,13 @@ class MT5Service extends EventEmitter {
     return this.connected;
   }
 
-  async getAccountInfo(): Promise<MT5AccountInfo> {
+  getAccountInfo(): Promise<MT5AccountInfo> {
     if (!this.connected) {
-      throw new Error('Not connected to MT5');
+      return Promise.reject(new Error('Not connected to MT5'));
     }
 
     // Return mock account info
-    return {
+    return Promise.resolve({
       balance: 10000.00 + (Math.random() - 0.5) * 200,
       equity: 10000.00 + (Math.random() - 0.5) * 150,
       freeMargin: 9500.00 + (Math.random() - 0.5) * 300,
@@ -196,19 +196,19 @@ class MT5Service extends EventEmitter {
       company: 'Demo Server',
       name: this.credentials?.login || 'Demo Account',
       server: this.credentials?.server || 'Demo-Server',
-    };
+    });
   }
 
-  async getPositions(): Promise<MT5Position[]> {
+  getPositions(): Promise<MT5Position[]> {
     if (!this.connected) {
-      return [];
+      return Promise.resolve([]);
     }
 
     // Return mock positions (sometimes empty, sometimes with data)
     const hasPositions = Math.random() > 0.7;
-    if (!hasPositions) return [];
+    if (!hasPositions) return Promise.resolve([]);
 
-    return [
+    return Promise.resolve([
       {
         ticket: Math.floor(Math.random() * 1000000),
         symbol: 'EURUSD',
@@ -219,10 +219,10 @@ class MT5Service extends EventEmitter {
         swap: 0.00,
         commission: -0.50,
       }
-    ];
+    ]);
   }
 
-  async subscribeToSymbol(symbol: string): Promise<void> {
+  subscribeToSymbol(symbol: string): Promise<void> {
     console.log(`MT5Service: Subscribed to ${symbol}`);
     // Mock subscription - no real connection needed
     return Promise.resolve();

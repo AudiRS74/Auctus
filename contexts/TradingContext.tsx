@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, ReactNode, useState, useEffect } from 'react';
 
 interface Trade {
   id: string;
@@ -98,7 +98,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     setMT5Config({ ...config, connected: true });
   };
 
-  const updateIndicators = async (symbol: string) => {
+  const updateIndicators = async (_symbol: string) => {
     // Simulate fetching real-time indicators
     await new Promise(resolve => setTimeout(resolve, 500));
     setIndicators({

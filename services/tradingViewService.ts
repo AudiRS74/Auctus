@@ -22,7 +22,7 @@ export interface ChartData {
 }
 
 class TradingViewService extends EventEmitter {
-  private subscriptions: Map<string, any> = new Map();
+  private subscriptions: Map<string, unknown> = new Map();
   private marketData: Map<string, TradingViewData> = new Map();
   private priceIntervals: Map<string, NodeJS.Timeout> = new Map();
   private initialized: boolean = false;
@@ -32,7 +32,7 @@ class TradingViewService extends EventEmitter {
     console.log('TradingViewService initialized');
   }
 
-  async initialize(): Promise<boolean> {
+  initialize(): Promise<boolean> {
     try {
       console.log('TradingViewService: Initializing...');
       
@@ -41,10 +41,10 @@ class TradingViewService extends EventEmitter {
       this.initialized = true;
       
       console.log('TradingViewService: Initialized successfully');
-      return true;
+      return Promise.resolve(true);
     } catch (error) {
       console.error('TradingViewService: Initialization failed:', error);
-      return false;
+      return Promise.resolve(false);
     }
   }
 

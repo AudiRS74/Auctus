@@ -42,10 +42,10 @@ export function useTrading() {
       initialized: false,
       loading: false,
       error: 'Trading context not available',
-      executeTrade: async () => { throw new Error('Trading not available'); },
-      connectMT5: async () => { throw new Error('MT5 connection not available'); },
+      executeTrade: () => Promise.reject(new Error('Trading not available')),
+      connectMT5: () => Promise.reject(new Error('MT5 connection not available')),
       disconnectMT5: () => {},
-      updateIndicators: async () => {},
+      updateIndicators: () => Promise.resolve(),
       setSelectedSymbol: () => {},
       addAutomationRule: () => {},
       toggleAutomationRule: () => {},
@@ -55,7 +55,7 @@ export function useTrading() {
       deleteAutomationStrategy: () => {},
       startAutomation: () => {},
       stopAutomation: () => {},
-      refreshAccountData: async () => {},
+      refreshAccountData: () => Promise.resolve(),
       getMarketData: () => null,
     };
   }

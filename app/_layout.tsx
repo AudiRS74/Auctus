@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,9 +23,9 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     return () => {
       setIsMounted(false);
     };
-  }, []);
+  }, [initialize]);
 
-  const initialize = async () => {
+  const initialize = useCallback(async () => {
     try {
       console.log('App: Starting initialization...');
       
@@ -45,7 +45,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
         setInitError(error instanceof Error ? error.message : 'Unknown initialization error');
       }
     }
-  };
+  }, [isMounted]);
 
   if (initError) {
     return (
