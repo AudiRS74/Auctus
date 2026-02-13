@@ -36,7 +36,7 @@ jobs:
       #   run: deno fmt --check
 
       - name: Run linter
-        run: deno lint
+        run: deno lint --ignore=.expo,node_modules,dist,web-build,pnpm-lock.yaml,streamlit_app.py,requirements.txt,assets,scripts/run-windows-vm.sh
 
       - name: Run tests
         run: deno test -A

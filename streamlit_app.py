@@ -1,3 +1,5 @@
+# Streamlit version of the OnSpace AI Trading Pro application.
+# This implementation provides a Python-based alternative dashboard for the trading platform.
 import streamlit as st
 import pandas as pd
 import numpy as np

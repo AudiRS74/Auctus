@@ -88,25 +88,25 @@ class ApiService {
       const searchParams = new URLSearchParams(params);
       url += `?${searchParams.toString()}`;
     }
-    return await this.request<T>(url);
+    return this.request<T>(url);
   }
 
   async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return await this.request<T>(endpoint, {
+    return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return await this.request<T>(endpoint, {
+    return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return await this.request<T>(endpoint, {
+    return this.request<T>(endpoint, {
       method: 'DELETE',
     });
   }
