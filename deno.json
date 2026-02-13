@@ -1,0 +1,13 @@
+{
+  "lint": {
+    "exclude": [
+      ".expo/",
+      "node_modules/",
+      "dist/",
+      "web-build/",
+      "pnpm-lock.yaml",
+      "streamlit_app.py",
+      "requirements.txt"
+    ]
+  }
+}
