@@ -232,7 +232,7 @@ export default function ChartsScreen() {
                   onPress={() => setChartType(type.id)}
                 >
                   <MaterialIcons 
-                    name={type.icon as unknown as any}
+                    name={type.icon as keyof typeof MaterialIcons.glyphMap}
                     size={16} 
                     color={chartType === type.id ? Colors.textPrimary : Colors.textSecondary} 
                   />

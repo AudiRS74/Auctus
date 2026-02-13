@@ -88,7 +88,7 @@ class ApiService {
       const searchParams = new URLSearchParams(params);
       url += `?${searchParams.toString()}`;
     }
-    return this.request<T>(url);
+    return await this.request<T>(url);
   }
 
   async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {

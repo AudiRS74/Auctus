@@ -4,7 +4,7 @@ import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import Colors from '../constants/Colors';
+import { Colors } from '../constants/Colors';
 import { TextStyles } from '../constants/Typography';
 
 export default function NotFound() {

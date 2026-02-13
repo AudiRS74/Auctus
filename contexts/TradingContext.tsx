@@ -67,7 +67,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
 
-  const executeTrade = async (symbol: string, type: 'BUY' | 'SELL', quantity: number) => {
+  const executeTrade = (symbol: string, type: 'BUY' | 'SELL', quantity: number) => {
     const newTrade: Trade = {
       id: Date.now().toString(),
       symbol,
@@ -90,6 +90,8 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         )
       );
     }, 2000);
+
+    return Promise.resolve();
   };
 
   const connectMT5 = async (config: Omit<MT5Config, 'connected'>) => {

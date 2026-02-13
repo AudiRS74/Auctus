@@ -238,7 +238,7 @@ export default function AutomationScreen() {
                       styles.optionButton,
                       newStrategy.indicator === indicator && styles.optionButtonActive
                     ]}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, indicator: indicator as unknown as any }))}
+                    onPress={() => setNewStrategy(prev => ({ ...prev, indicator: indicator as 'RSI' | 'MACD' | 'MA' | 'BB' | 'STOCH' | 'ADX' }))}
                   >
                     <Text style={[
                       styles.optionButtonText,
@@ -311,7 +311,7 @@ export default function AutomationScreen() {
                       styles.optionButton,
                       newStrategy.tradeType === type && styles.optionButtonActive
                     ]}
-                    onPress={() => setNewStrategy(prev => ({ ...prev, tradeType: type as unknown as any }))}
+                    onPress={() => setNewStrategy(prev => ({ ...prev, tradeType: type as 'BUY' | 'SELL' | 'BOTH' }))}
                   >
                     <Text style={[
                       styles.optionButtonText,

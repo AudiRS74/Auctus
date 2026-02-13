@@ -1,5 +1,0 @@
-{
-  "lint": {
-    "exclude": [".expo/", "node_modules/", "dist/", "web-build/"]
-  }
-}
