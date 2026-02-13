@@ -578,53 +578,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     return realTimeData.marketData[symbol] || null;
   }, [realTimeData.marketData]);
 
-  const addAutomationRule = useCallback((name: string, description: string) => {
-    if (!isMounted) return;
-    const newRule: AutomationRule = {
-      id: Date.now().toString(),
-      name,
-      description,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    setAutomationRules(prev => [newRule, ...prev]);
-  }, [isMounted]);
-
-  const toggleAutomationRule = useCallback((id: string) => {
-    if (!isMounted) return;
-    setAutomationRules(prev =>
-      prev.map(rule =>
-        rule.id === id ? { ...rule, isActive: !rule.isActive } : rule
-      )
-    );
-  }, [isMounted]);
-
-  const deleteAutomationRule = useCallback((id: string) => {
-    if (!isMounted) return;
-    setAutomationRules(prev => prev.filter(rule => rule.id !== id));
-  }, [isMounted]);
-
-  const addAutomationStrategy = useCallback((strategy: AutomationStrategy) => {
-    if (!isMounted) return;
-    setAutomationStrategies(prev => [strategy, ...prev]);
-  }, [isMounted]);
-
-  const toggleAutomationStrategy = useCallback((id: string) => {
-    if (!isMounted) return;
-    setAutomationStrategies(prev =>
-      prev.map(strategy =>
-        strategy.id === id ? { ...strategy, isActive: !strategy.isActive } : strategy
-      )
-    );
-    updateAutomationStatus();
-  }, [isMounted, updateAutomationStatus]);
-
-  const deleteAutomationStrategy = useCallback((id: string) => {
-    if (!isMounted) return;
-    setAutomationStrategies(prev => prev.filter(strategy => strategy.id !== id));
-    updateAutomationStatus();
-  }, [isMounted, updateAutomationStatus]);
-
   const updateAutomationStatus = useCallback(() => {
     if (!isMounted) return;
     const activeStrategies = automationStrategies.filter(s => s.isActive);
@@ -637,39 +590,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       lastUpdate: new Date(),
     }));
   }, [isMounted, automationStrategies]);
-
-  const startAutomation = useCallback(() => {
-    if (!isMounted) return;
-    const activeStrategies = automationStrategies.filter(s => s.isActive);
-    if (activeStrategies.length === 0) {
-      console.warn('No active strategies to run');
-      return;
-    }
-
-    automationEngine.start();
-    setAutomationStatus(prev => ({
-      ...prev,
-      isRunning: true,
-      lastUpdate: new Date(),
-    }));
-
-    startSignalMonitoring();
-  }, [isMounted, automationStrategies, startSignalMonitoring]);
-
-  const stopAutomation = useCallback(() => {
-    if (!isMounted) return;
-    automationEngine.stop();
-    setAutomationStatus(prev => ({
-      ...prev,
-      isRunning: false,
-      lastUpdate: new Date(),
-    }));
-
-    if (signalMonitoringInterval) {
-      clearInterval(signalMonitoringInterval);
-      setSignalMonitoringInterval(null);
-    }
-  }, [isMounted, signalMonitoringInterval]);
 
   const monitorAutomationSignals = useCallback(async () => {
     if (!isMounted) return;
@@ -740,6 +660,86 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
     setSignalMonitoringInterval(interval);
   }, [isMounted, signalMonitoringInterval, monitorAutomationSignals]);
+
+  const addAutomationRule = useCallback((name: string, description: string) => {
+    if (!isMounted) return;
+    const newRule: AutomationRule = {
+      id: Date.now().toString(),
+      name,
+      description,
+      isActive: true,
+      createdAt: new Date(),
+    };
+    setAutomationRules(prev => [newRule, ...prev]);
+  }, [isMounted]);
+
+  const toggleAutomationRule = useCallback((id: string) => {
+    if (!isMounted) return;
+    setAutomationRules(prev =>
+      prev.map(rule =>
+        rule.id === id ? { ...rule, isActive: !rule.isActive } : rule
+      )
+    );
+  }, [isMounted]);
+
+  const deleteAutomationRule = useCallback((id: string) => {
+    if (!isMounted) return;
+    setAutomationRules(prev => prev.filter(rule => rule.id !== id));
+  }, [isMounted]);
+
+  const addAutomationStrategy = useCallback((strategy: AutomationStrategy) => {
+    if (!isMounted) return;
+    setAutomationStrategies(prev => [strategy, ...prev]);
+  }, [isMounted]);
+
+  const toggleAutomationStrategy = useCallback((id: string) => {
+    if (!isMounted) return;
+    setAutomationStrategies(prev =>
+      prev.map(strategy =>
+        strategy.id === id ? { ...strategy, isActive: !strategy.isActive } : strategy
+      )
+    );
+    updateAutomationStatus();
+  }, [isMounted, updateAutomationStatus]);
+
+  const deleteAutomationStrategy = useCallback((id: string) => {
+    if (!isMounted) return;
+    setAutomationStrategies(prev => prev.filter(strategy => strategy.id !== id));
+    updateAutomationStatus();
+  }, [isMounted, updateAutomationStatus]);
+
+  const startAutomation = useCallback(() => {
+    if (!isMounted) return;
+    const activeStrategies = automationStrategies.filter(s => s.isActive);
+    if (activeStrategies.length === 0) {
+      console.warn('No active strategies to run');
+      return;
+    }
+
+    automationEngine.start();
+    setAutomationStatus(prev => ({
+      ...prev,
+      isRunning: true,
+      lastUpdate: new Date(),
+    }));
+
+    startSignalMonitoring();
+  }, [isMounted, automationStrategies, startSignalMonitoring]);
+
+  const stopAutomation = useCallback(() => {
+    if (!isMounted) return;
+    automationEngine.stop();
+    setAutomationStatus(prev => ({
+      ...prev,
+      isRunning: false,
+      lastUpdate: new Date(),
+    }));
+
+    if (signalMonitoringInterval) {
+      clearInterval(signalMonitoringInterval);
+      setSignalMonitoringInterval(null);
+    }
+  }, [isMounted, signalMonitoringInterval]);
 
   // Auto-refresh indicators based on real market data
   useEffect(() => {

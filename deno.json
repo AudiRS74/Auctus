@@ -7,7 +7,9 @@
       "web-build/",
       "pnpm-lock.yaml",
       "streamlit_app.py",
-      "requirements.txt"
+      "requirements.txt",
+      "assets/",
+      "scripts/run-windows-vm.sh"
     ]
   }
 }
