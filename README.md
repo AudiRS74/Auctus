@@ -19,6 +19,7 @@ npm run start         # Start Expo development server
 npm run android       # Launch Android emulator
 npm run ios           # Launch iOS simulator
 npm run web           # Start the web version
+npm run streamlit     # Start the Streamlit version
 ```
 
 - Reset the project (clear cache, etc.):
