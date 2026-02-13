@@ -1,0 +1,17 @@
+{
+	"name": "Streamlit DevOps Container",
+	"build": {
+		"dockerfile": "../Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylance"
+			]
+		}
+	},
+	"forwardPorts": [8501],
+	"postCreateCommand": "pip3 install -r requirements.txt",
+	"remoteUser": "root"
+}

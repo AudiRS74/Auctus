@@ -1,0 +1,17 @@
+**/*.pyc
+**/*.pyo
+**/*.pyd
+__pycache__
+.pytest_cache
+.vscode
+.idea
+.git
+.github
+.devcontainer
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+venv
+.env
+streamlit.log
